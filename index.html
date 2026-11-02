@@ -45,17 +45,60 @@
   th { color:var(--muted); font-weight:600; text-align:left; }
   td.v { font-weight:800; text-align:right; font-variant-numeric:tabular-nums; }
   .hidden { display:none !important; }
+  .scale { display:grid; grid-template-columns:repeat(11, 1fr); gap:4px; }
+  .scale button { background:var(--card); color:var(--fg); font-size:4.6vw; font-weight:800; padding:2.2vh 0; border-radius:10px; }
+  .scale button.sel, .opt.sel { background:var(--btn); color:#111; }
+  .alert { background:#7f1d1d; color:#fff; border-radius:16px; padding:2vh 4vw; font-size:4.4vw; line-height:1.4; width:100%; max-width:600px; text-align:left; }
+  .alert button { margin-top:1.5vh; }
+  #hist-table td { font-size:3.8vw; text-align:left; }
   @media (orientation:landscape) { #time { font-size:30vh; } #label { font-size:8vh; } }
 </style>
 </head>
 <body>
 
 <!-- Accueil -->
-<section id="home" class="screen on">
+<section id="home" class="screen on scroll">
   <h1>Coach escalade</h1>
+  <div id="alert-box" class="alert hidden"></div>
+  <div id="morning-box" class="field hidden">
+    <label>Douleur aux doigts ce matin (après la séance d'hier)</label>
+    <div class="scale" data-scale="morning"></div>
+  </div>
   <button class="big" id="start">Séance du jour</button>
   <p class="sub" id="home-info"></p>
-  <button class="mid" id="go-tests">Tests</button>
+  <div class="row"><button class="small" id="go-tests">Tests</button><button class="small" id="go-hist">Historique</button></div>
+</section>
+
+<!-- Forme du jour (§4.1) -->
+<section id="form" class="screen scroll">
+  <h2>Forme du jour</h2>
+  <div class="field"><label>Douleur doigts (0–10)</label><div class="scale" data-scale="doigts"></div></div>
+  <div class="field"><label>Douleur coude (0–10)</label><div class="scale" data-scale="coude"></div></div>
+  <div class="field"><label>Douleur épaule (0–10)</label><div class="scale" data-scale="epaule"></div></div>
+  <div class="field"><label>Bloc ou grimpe intense dans les dernières 24 h ?</label>
+    <div class="row"><button class="small opt" data-g="0">Non</button><button class="small opt" data-g="1">Oui</button></div></div>
+  <div id="form-warn" class="alert hidden"></div>
+  <button class="big" id="form-go">Démarrer</button>
+  <button class="small" style="flex:0" data-home>Retour</button>
+</section>
+
+<!-- Saisie après séance -->
+<section id="after" class="screen scroll">
+  <h2 id="after-title">Séance terminée</h2>
+  <div class="field"><label>Ressenti de l'exercice</label>
+    <div class="row"><button class="small opt" data-r="facile">Facile</button><button class="small opt" data-r="juste">Juste</button><button class="small opt" data-r="echec">Échec</button></div></div>
+  <div class="field"><label>Douleur aux doigts (0–10)</label><div class="scale" data-scale="after"></div></div>
+  <button class="mid no" id="snap">Claquement ou douleur aiguë soudaine</button>
+  <button class="big" id="after-save">Enregistrer</button>
+</section>
+
+<!-- Historique -->
+<section id="hist" class="screen scroll">
+  <h2>Historique</h2>
+  <table id="hist-table"></table>
+  <button class="mid" id="export">Exporter l'historique</button>
+  <p class="sub" id="export-msg"></p>
+  <button class="big" data-home>Accueil</button>
 </section>
 
 <!-- Choix du test -->
@@ -326,12 +369,144 @@ function refreshHome() {
   if (f) t += '<br>Dernier ratio de force : ' + fmt(f.ratioD, 2) + ' (D) · ' + fmt(f.ratioG, 2) + ' (G).';
   t += '<br>Monte le son et coupe le mode silencieux.';
   $('home-info').innerHTML = t;
+  homeExtras();
 }
-$('start').onclick = () => runPlan(dmaxPlan(), () => {
-  keepAwake(false); beep(1320, 0.3); setTimeout(() => beep(1760, 0.6), 350);
-  setTimeout(() => say('Lâche. Séance terminée. Bravo.'), 900); show('done');
-});
 $('go-tests').onclick = () => show('tests');
+
+// --- Échelles 0–10 ---------------------------------------------------------------
+const scaleVal = {};
+document.querySelectorAll('.scale').forEach(box => {
+  const k = box.dataset.scale;
+  for (let i = 0; i <= 10; i++) {
+    const b = document.createElement('button'); b.textContent = i;
+    b.onclick = () => { setScale(k, i); onScale(k, i); };
+    box.appendChild(b);
+  }
+});
+function setScale(k, v) {
+  scaleVal[k] = v;
+  document.querySelectorAll('[data-scale="' + k + '"] button').forEach((b, i) => b.classList.toggle('sel', i === v));
+}
+function onScale(k, v) {
+  if (k === 'morning') {
+    const s = store.get('sessions', []); const last = s[s.length - 1];
+    if (last) { last.douleurLendemain = v; store.set('sessions', s); }
+    refreshHome();
+  }
+  if (k === 'doigts' || k === 'coude' || k === 'epaule') formWarn();
+}
+function pick(sel, attr, val) { document.querySelectorAll(sel).forEach(b => b.classList.toggle('sel', b.getAttribute(attr) === String(val))); }
+
+// --- Forme du jour (§4.1) et règles « forme du jour » (§4.4, §4.8) ------------------
+const PAIN_LIMIT = 3;   // douleur ≥ 3/10 (§4.4 forme du jour 1, §4.8)
+let form = {};
+$('start').onclick = () => {
+  form = { grimpe24h:0 };
+  ['doigts','coude','epaule'].forEach(k => setScale(k, 0)); pick('[data-g]', 'data-g', 0);
+  formWarn(); show('form');
+};
+document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { form.grimpe24h = +b.dataset.g; pick('[data-g]', 'data-g', b.dataset.g); formWarn(); });
+function formWarn() {
+  const w = [];
+  if (scaleVal.doigts >= PAIN_LIMIT) w.push('Douleur doigts ≥ 3/10 : la revue conseille de remplacer la séance doigts par du renfo sans doigts ou du repos (§4.4).');
+  if (scaleVal.coude >= PAIN_LIMIT || scaleVal.epaule >= PAIN_LIMIT) w.push('Douleur coude ou épaule ≥ 3/10 : la revue conseille de retirer les suspensions max et les tractions lestées (§4.8).');
+  if (form.grimpe24h) w.push('Grimpe intense dans les 24 h : la revue conseille de ne pas faire de suspensions max aujourd\'hui (§4.4).');
+  $('form-warn').innerHTML = w.join('<br><br>');
+  $('form-warn').classList.toggle('hidden', !w.length);
+  $('form-go').textContent = w.length ? 'Faire quand même' : 'Démarrer';
+}
+let current = null;
+$('form-go').onclick = () => {
+  current = { type:'D-MAX', date:new Date().toISOString(), lest:dmaxLest(),
+    forme:{ doigts:scaleVal.doigts, coude:scaleVal.coude, epaule:scaleVal.epaule, grimpe24h:!!form.grimpe24h },
+    conseilIgnore:!$('form-warn').classList.contains('hidden'), complete:false };
+  runPlan(dmaxPlan(), () => {
+    current.complete = true;
+    keepAwake(false); beep(1320, 0.3); setTimeout(() => beep(1760, 0.6), 350);
+    setTimeout(() => say('Lâche. Séance terminée. Bravo.'), 900);
+    openAfter('Séance terminée');
+  });
+};
+
+// --- Saisie après séance : ressenti (1 tap par exercice, D3) + douleur doigts ----------
+let after = {};
+function openAfter(title) {
+  after = { ressenti:null, claquement:false };
+  $('after-title').textContent = title; pick('[data-r]', 'data-r', ''); setScale('after', -1);
+  show('after');
+}
+document.querySelectorAll('[data-r]').forEach(b => b.onclick = () => { after.ressenti = b.dataset.r; pick('[data-r]', 'data-r', b.dataset.r); });
+$('after-save').onclick = () => saveSession();
+$('snap').onclick = () => { after.claquement = true; saveSession(); };
+function saveSession() {
+  if (!current) return stopAll();
+  current.ressenti = after.ressenti;
+  current.douleurDoigts = scaleVal.after >= 0 ? scaleVal.after : null;
+  current.claquement = after.claquement;
+  current.douleurLendemain = null;
+  const s = store.get('sessions', []); s.push(current); store.set('sessions', s);
+  if (current.claquement) store.set('blocage', { date:current.date });   // §4.8
+  current = null; stopAll();
+}
+// Arrêt en cours de séance D-MAX : on passe quand même par la saisie (§4.8 : claquement → arrêt).
+$('stop').onclick = () => {
+  if (current && (state === 'running' || state === 'paused')) {
+    state = 'idle'; clearInterval(timer); try { speechSynthesis.cancel(); } catch (e) {}
+    document.body.className = ''; keepAwake(false); openAfter('Séance arrêtée');
+  } else stopAll();
+};
+
+// --- Alertes et douleur du lendemain sur l'accueil ------------------------------------
+function dayDiff(iso) {
+  const a = new Date(iso), b = new Date();
+  return Math.round((new Date(b.getFullYear(), b.getMonth(), b.getDate()) - new Date(a.getFullYear(), a.getMonth(), a.getDate())) / 864e5);
+}
+function homeExtras() {
+  const s = store.get('sessions', []), last = s[s.length - 1];
+  const needMorning = last && last.douleurLendemain == null && dayDiff(last.date) === 1;
+  $('morning-box').classList.toggle('hidden', !needMorning);
+  if (needMorning) setScale('morning', -1);
+  const al = [], blk = store.get('blocage', null);
+  if (blk) al.push('<b>Claquement ou douleur aiguë déclarés.</b> Séances doigts bloquées. Consulte un médecin ; une échographie est recommandée (§2.7, §4.8).' +
+    '<br><button class="small" id="unblock">J\'ai consulté, débloquer</button>');
+  const d = s.filter(x => x.douleurDoigts != null).slice(-2);
+  if (!blk && d.length === 2 && d.every(x => x.douleurDoigts >= PAIN_LIMIT))
+    al.push('Douleur doigts ≥ 3/10 deux séances de suite : la revue conseille une semaine sans poutre, grimpe facile en prise ouverte uniquement (§4.8).');
+  if (last && last.douleurLendemain != null && last.douleurDoigts != null && last.douleurLendemain > last.douleurDoigts)
+    al.push('Douleur le lendemain plus forte que pendant la séance : la revue conseille de faire la moitié des séries à la prochaine séance doigts (§4.4). L'appli ne l'applique pas encore toute seule.');
+  $('alert-box').innerHTML = al.join('<br><br>');
+  $('alert-box').classList.toggle('hidden', !al.length);
+  $('start').disabled = !!blk; $('start').style.opacity = blk ? .35 : 1;
+  const u = document.getElementById('unblock'); if (u) u.onclick = () => { store.set('blocage', null); refreshHome(); };
+}
+
+// --- Historique et export ----------------------------------------------------------
+const R = { facile:'facile', juste:'juste', echec:'échec' };
+$('go-hist').onclick = () => {
+  const s = store.get('sessions', []).map(x => ({ d:x.date, t:x.type + (x.lest != null ? ' (' + signed(x.lest) + ')' : ''),
+    v:(x.complete ? '' : 'arrêtée · ') + (x.ressenti ? R[x.ressenti] : '—') + ' · doigts ' + (x.douleurDoigts ?? '—') + (x.claquement ? ' · CLAQUEMENT' : '') }));
+  const t = store.get('tests', []).map(x => ({ d:x.date, t:x.type === 'force' ? 'Test force' : 'Test lest',
+    v:x.type === 'force' ? 'ratio ' + fmt(x.ratioD, 2) + ' D · ' + fmt(x.ratioG, 2) + ' G' : 'lest max ' + signed(x.lestMax) }));
+  const all = s.concat(t).sort((a, b) => b.d.localeCompare(a.d));
+  $('hist-table').innerHTML = all.length ? all.map(x => '<tr><td>' + new Date(x.d).toLocaleDateString('fr-FR') + '</td><td>' + x.t + '</td><td>' + x.v + '</td></tr>').join('')
+    : '<tr><td>Rien pour l\'instant.</td></tr>';
+  $('export-msg').textContent = '';
+  show('hist');
+};
+$('export').onclick = async () => {
+  const data = JSON.stringify({ exporte:new Date().toISOString(), profil:store.get('profile', {}),
+    seances:store.get('sessions', []), tests:store.get('tests', []) }, null, 1);
+  const name = 'coach-escalade-' + new Date().toISOString().slice(0, 10) + '.json';
+  try {
+    const file = new File([data], name, { type:'application/json' });
+    if (navigator.canShare && navigator.canShare({ files:[file] })) { await navigator.share({ files:[file], title:name }); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  try { await navigator.clipboard.writeText(data); $('export-msg').textContent = 'Historique copié : colle-le dans la conversation avec Claude.'; }
+  catch (e) {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([data], { type:'application/json' })); a.download = name; a.click();
+    $('export-msg').textContent = 'Fichier téléchargé : ' + name;
+  }
+};
 
 // --- Test force d'une main --------------------------------------------------------
 let bodyW = null;
