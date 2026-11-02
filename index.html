@@ -477,7 +477,7 @@ function homeExtras() {
   if (!blk && d.length === 2 && d.every(x => x.douleurDoigts >= PAIN_LIMIT))
     al.push('Douleur doigts ≥ 3/10 deux séances de suite : la revue conseille une semaine sans poutre, grimpe facile en prise ouverte uniquement (§4.8).');
   if (last && last.douleurLendemain != null && last.douleurDoigts != null && last.douleurLendemain > last.douleurDoigts)
-    al.push('Douleur le lendemain plus forte que pendant la séance : la revue conseille de faire la moitié des séries à la prochaine séance doigts (§4.4). L'appli ne l'applique pas encore toute seule.');
+    al.push('Douleur le lendemain plus forte que pendant la séance : la revue conseille de faire la moitié des séries à la prochaine séance doigts (§4.4). L\'appli ne l\'applique pas encore toute seule.');
   $('alert-box').innerHTML = al.join('<br><br>');
   $('alert-box').classList.toggle('hidden', !al.length);
   $('start').disabled = !!blk; $('start').style.opacity = blk ? .35 : 1;
