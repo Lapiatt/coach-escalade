@@ -107,6 +107,8 @@
   <p class="sub">Conditions : 48 h sans effort intense, même heure, même réglette, prise semi-arquée. Poids pris le matin.</p>
   <button class="mid" id="go-force">Force d'une main<br><span class="sub">pèse-personne, ≈ 20 min</span></button>
   <button class="mid" id="go-lest">Lest max 10 s deux mains<br><span class="sub">≈ 15–25 min</span></button>
+  <button class="mid" id="go-int">Endurance 7:3 (pèse-personne)<br><span class="sub">après le test de force</span></button>
+  <button class="mid" id="go-trac">Traction lestée 1–3 RM</button>
   <button class="small" style="flex:0" data-home>Retour</button>
 </section>
 
@@ -168,6 +170,41 @@
   <table id="result-table"></table>
   <p class="sub" id="result-note"></p>
   <button class="big" data-home>Accueil</button>
+</section>
+
+<!-- Test endurance 7:3 (§2.8) -->
+<section id="int-setup" class="screen scroll">
+  <h2>Endurance 7:3</h2>
+  <p class="sub">Debout sur le pèse-personne, deux mains, 20 mm, semi-arqué. Tire 7 s en gardant la balance sur la cible, relâche 3 s.
+    Arrête-toi après <b>deux contractions de suite sous la cible</b> : touche alors l'écran.</p>
+  <div id="int-target" style="font-size:16vw;font-weight:900"></div>
+  <p class="sub" id="int-help"></p>
+  <button class="big" id="int-start">Commencer</button>
+  <button class="small" style="flex:0" data-home>Retour</button>
+</section>
+<section id="cycle" class="screen">
+  <div id="cy-count" style="font-size:7vw;font-weight:700"></div>
+  <div id="cy-label" style="font-size:12vw;font-weight:900"></div>
+  <div id="cy-time" style="font-size:36vw;font-weight:900;line-height:1;font-variant-numeric:tabular-nums"></div>
+  <div id="cy-target" style="font-size:6vw;opacity:.85"></div>
+  <button class="big" id="cy-stop" style="background:#fff;color:#111">Stop (2 sous la cible)</button>
+</section>
+<section id="int-res" class="screen">
+  <h2>Endurance 7:3</h2>
+  <p class="sub" id="int-done"></p>
+  <div class="field"><label>Score : contractions tenues à la cible</label><input id="int-score" inputmode="numeric"></div>
+  <button class="big" id="int-save">Enregistrer</button>
+</section>
+
+<!-- Test traction (§2.8) -->
+<section id="trac" class="screen">
+  <h2>Traction lestée</h2>
+  <p class="sub">Prise standard, amplitude complète. Note la charge la plus lourde tenue pour 1 à 3 répétitions.</p>
+  <div class="field"><label>Lest (kg)</label>
+    <div class="num"><button class="sign" id="trac-sign">+</button><input id="trac-kg" inputmode="decimal" placeholder="0"></div></div>
+  <div class="field"><label>Répétitions</label><input id="trac-reps" inputmode="numeric" placeholder="1"></div>
+  <button class="big" id="trac-save">Enregistrer</button>
+  <button class="small" style="flex:0" data-home>Retour</button>
 </section>
 
 <section id="done" class="screen">
@@ -391,7 +428,7 @@ function finishRun() {
   const cb = onEnd; onEnd = null; cb && cb();
 }
 function stopAll() {
-  state = 'idle'; clearInterval(timer); clearInterval(lestTimer); keepAwake(false);
+  state = 'idle'; clearInterval(timer); if (typeof cyTimer !== 'undefined') clearInterval(cyTimer); clearInterval(lestTimer); keepAwake(false);
   try { speechSynthesis.cancel(); } catch (e) {}
   document.body.className = ''; $('rest-ask').classList.add('hidden'); refreshHome(); show('home');
 }
@@ -528,8 +565,12 @@ const R = { facile:'facile', juste:'juste', echec:'échec' };
 $('go-hist').onclick = () => {
   const s = store.get('sessions', []).map(x => ({ d:x.date, t:x.type + (x.lest != null ? ' (' + signed(x.lest) + ')' : ''),
     v:(x.complete ? '' : 'arrêtée · ') + (x.ressenti ? R[x.ressenti] : '—') + ' · doigts ' + (x.douleurDoigts ?? '—') + (x.claquement ? ' · CLAQUEMENT' : '') }));
-  const t = store.get('tests', []).map(x => ({ d:x.date, t:x.type === 'force' ? 'Test force' : 'Test lest',
-    v:x.type === 'force' ? 'ratio ' + fmt(x.ratioD, 2) + ' D · ' + fmt(x.ratioG, 2) + ' G' : 'lest max ' + signed(x.lestMax) }));
+  const TN = { force:'Test force', lest:'Test lest', int73:'Test 7:3', traction:'Test traction' };
+  const tv = x => x.type === 'force' ? 'ratio ' + fmt(x.ratioD, 2) + ' D · ' + fmt(x.ratioG, 2) + ' G'
+    : x.type === 'lest' ? 'lest max ' + signed(x.lestMax)
+    : x.type === 'int73' ? x.score + ' contractions (cible ' + fmt(x.cible) + ' kg)'
+    : signed(x.lest) + ' × ' + x.reps;
+  const t = store.get('tests', []).map(x => ({ d:x.date, t:TN[x.type] || x.type, v:tv(x) }));
   const all = s.concat(t).sort((a, b) => b.d.localeCompare(a.d));
   $('hist-table').innerHTML = all.length ? all.map(x => '<tr><td>' + new Date(x.d).toLocaleDateString('fr-FR') + '</td><td>' + x.t + '</td><td>' + x.v + '</td></tr>').join('')
     : '<tr><td>Rien pour l\'instant.</td></tr>';
@@ -662,6 +703,90 @@ $('lest-end').onclick = () => {
     '<tr><td><b>Lest max</b></td><td class="v" colspan="2">' + signed(lestMax) + '</td></tr>' +
     '<tr><td><b>Charge séance</b></td><td class="v" colspan="2">' + signed(charge) + '</td></tr>';
   $('result-note').textContent = 'Charge des suspensions max = 80 % du lest max, arrondie à 0,5 kg.';
+  show('result');
+};
+
+// --- Test endurance 7:3 (§2.8) ------------------------------------------------------
+const INT_PULL_S = 7, INT_RELAX_S = 3;   // 7 s / 3 s (§2.8)
+const INT_PCT = 0.60;                    // 60 % de la MVC deux mains (§2.8) ; MVC deux mains = somme des deux mains (§3)
+const INT_PAUSE_S = 600;                 // 10 min de repos après le test de force (§4.3 TEST)
+const INT_FAIL = 2;                      // arrêt après 2 contractions de suite sous la cible (§2.8, choix pragmatique)
+let intTarget = null, cyTimer = null, cyStart = 0, cyN = 0, cyPhase = '';
+$('go-int').onclick = () => {
+  const f = lastForce(), bw = store.get('profile', {}).poids ?? (f && f.poids);
+  if (!f || f.forceD == null || f.forceG == null || !bw) {
+    $('int-target').textContent = ''; $('int-help').textContent = 'Fais d\'abord le test de force d\'une main : la cible en dépend.';
+    $('int-start').classList.add('hidden'); return show('int-setup');
+  }
+  const mvc2 = f.forceD + f.forceG;
+  intTarget = bw - INT_PCT * mvc2;
+  $('int-target').textContent = fmt(intTarget) + ' kg';
+  const recent = Date.now() - new Date(f.date).getTime() < 3 * 3600e3;
+  $('int-help').innerHTML = 'Cible de la balance = poids (' + fmt(bw) + ') − 60 % de ta force deux mains (' + fmt(mvc2) + ' kg).' +
+    (recent ? '<br>Test de force fait il y a moins de 3 h : l\'appli commence par 10 min de repos.' : '<br>L\'appli commence par l\'échauffement.');
+  $('int-start').classList.remove('hidden'); $('int-start').dataset.recent = recent ? '1' : '';
+  show('int-setup');
+};
+$('int-start').onclick = () => {
+  const pre = $('int-start').dataset.recent
+    ? [{ kind:'rest', label:'Repos après le test de force', dur:INT_PAUSE_S, say:'Dix minutes de repos.' }]
+    : warmPlan();
+  pre.push({ kind:'rest', label:'Monte sur la balance', dur:READY_S + 1, say:'Cible ' + fmt(intTarget) + ' kilos.' });
+  runPlan(pre, startCycles);
+};
+function startCycles() {
+  cyN = 0; cyPhase = ''; cyStart = now(); show('cycle');
+  $('cy-target').textContent = 'Cible : ' + fmt(intTarget) + ' kg';
+  clearInterval(cyTimer); cyTimer = setInterval(cyTick, 100); cyTick();
+}
+function cyTick() {
+  const el = (now() - cyStart) / 1000, per = INT_PULL_S + INT_RELAX_S;
+  const k = Math.floor(el / per), inC = el - k * per;
+  const ph = inC < INT_PULL_S ? 'pull' : 'relax';
+  if (ph !== cyPhase || k + 1 !== cyN && ph === 'pull') {
+    cyPhase = ph;
+    if (ph === 'pull') { cyN = k + 1; document.body.className = 'hang'; beep(1320, 0.25); say('Tire.'); }
+    else { document.body.className = 'rest'; beep(660, 0.25); say('Relâche.'); }
+  }
+  const left = ph === 'pull' ? INT_PULL_S - inC : per - inC;
+  $('cy-label').textContent = ph === 'pull' ? 'Tire' : 'Relâche';
+  $('cy-time').textContent = Math.ceil(left);
+  $('cy-count').textContent = 'Contraction ' + cyN;
+}
+$('cy-stop').onclick = () => {
+  clearInterval(cyTimer); keepAwake(false); document.body.className = ''; say('Stop.');
+  $('int-done').textContent = cyN + ' contractions commencées. Les 2 dernières étaient sous la cible : le score proposé est ' + Math.max(0, cyN - INT_FAIL) + '.';
+  $('int-score').value = Math.max(0, cyN - INT_FAIL);
+  show('int-res');
+};
+$('int-save').onclick = () => {
+  const sc = parseInt($('int-score').value, 10); if (!(sc >= 0)) { $('int-score').focus(); return; }
+  const tests = store.get('tests', []); const prev = tests.filter(x => x.type === 'int73').pop();
+  tests.push({ type:'int73', date:new Date().toISOString(), score:sc, cible:intTarget, pct:INT_PCT });
+  store.set('tests', tests);
+  $('result-title').textContent = 'Endurance 7:3';
+  $('result-table').innerHTML = '<tr><td>Score</td><td class="v">' + sc + '</td></tr><tr><td>Cible</td><td class="v">' + fmt(intTarget) + ' kg</td></tr>' +
+    (prev ? '<tr><td>Test précédent</td><td class="v">' + prev.score + '</td></tr>' : '');
+  $('result-note').textContent = 'Le critère d\'arrêt est un choix pragmatique non validé (§2.8) : compare surtout tes propres résultats entre eux.';
+  show('result');
+};
+
+// --- Test traction 1–3 RM (§2.8) -------------------------------------------------------
+let tracSign = 1;
+$('go-trac').onclick = () => { tracSign = 1; $('trac-sign').textContent = '+'; $('trac-kg').value = ''; $('trac-reps').value = ''; show('trac'); };
+$('trac-sign').onclick = () => { tracSign = -tracSign; $('trac-sign').textContent = tracSign > 0 ? '+' : '−'; };
+$('trac-save').onclick = () => {
+  const kg = num($('trac-kg').value), reps = parseInt($('trac-reps').value, 10);
+  if (kg == null) return $('trac-kg').focus();
+  if (!(reps >= 1)) return $('trac-reps').focus();
+  const lest = tracSign * Math.abs(kg);
+  const tests = store.get('tests', []); const prev = tests.filter(x => x.type === 'traction').pop();
+  tests.push({ type:'traction', date:new Date().toISOString(), lest, reps, poids:store.get('profile', {}).poids ?? null });
+  store.set('tests', tests);
+  $('result-title').textContent = 'Traction lestée';
+  $('result-table').innerHTML = '<tr><td>Charge</td><td class="v">' + signed(lest) + ' × ' + reps + '</td></tr>' +
+    (prev ? '<tr><td>Test précédent</td><td class="v">' + signed(prev.lest) + ' × ' + prev.reps + '</td></tr>' : '');
+  $('result-note').textContent = '';
   show('result');
 };
 
