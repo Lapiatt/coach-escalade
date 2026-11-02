@@ -11,82 +11,199 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <title>Coach escalade</title>
 <style>
-  :root { --bg:#0f172a; --fg:#f8fafc; --muted:#94a3b8; --hang:#16a34a; --rest:#1d4ed8; --warm:#b45309; --btn:#f59e0b; }
+  :root { --bg:#0f172a; --fg:#f8fafc; --muted:#94a3b8; --hang:#16a34a; --rest:#1d4ed8; --warm:#b45309; --btn:#f59e0b; --card:#1e293b; }
   * { box-sizing:border-box; margin:0; -webkit-tap-highlight-color:transparent; }
   html,body { height:100%; background:var(--bg); color:var(--fg);
     font-family:-apple-system,system-ui,sans-serif; overflow:hidden; user-select:none; -webkit-user-select:none; }
   body { padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom); transition:background .3s; }
   body.hang { background:var(--hang); } body.rest { background:var(--rest); } body.warm { background:var(--warm); }
-  .screen { display:none; height:100%; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:4vh; }
+  .screen { display:none; height:100%; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:3vh; }
   .screen.on { display:flex; }
+  .scroll { justify-content:flex-start; overflow-y:auto; padding:4vh 0; -webkit-overflow-scrolling:touch; }
   h1 { font-size:8vw; font-weight:800; }
-  .sub { color:var(--muted); font-size:4.5vw; line-height:1.4; max-width:34em; }
-  button { font:inherit; border:0; border-radius:24px; cursor:pointer; }
-  .big { background:var(--btn); color:#111; font-size:8vw; font-weight:800; padding:6vh 8vw; width:100%; max-width:600px; }
-  .small { background:rgba(255,255,255,.18); color:var(--fg); font-size:5vw; font-weight:700; padding:3vh 6vw; flex:1; }
-  #label { font-size:9vw; font-weight:800; line-height:1.1; min-height:2.2em; display:flex; align-items:center; }
-  #time { font-size:42vw; font-weight:900; line-height:1; font-variant-numeric:tabular-nums; letter-spacing:-.03em; }
-  #count { font-size:7vw; font-weight:700; opacity:.9; }
-  #next { font-size:5vw; opacity:.8; min-height:1.4em; }
-  .row { display:flex; gap:16px; width:100%; max-width:600px; }
+  h2 { font-size:6.5vw; font-weight:800; }
+  .sub { color:var(--muted); font-size:4.2vw; line-height:1.4; max-width:34em; }
+  button { font:inherit; border:0; border-radius:20px; cursor:pointer; }
+  .big { background:var(--btn); color:#111; font-size:7.5vw; font-weight:800; padding:5vh 6vw; width:100%; max-width:600px; }
+  .mid { background:var(--card); color:var(--fg); font-size:5.5vw; font-weight:700; padding:3.2vh 5vw; width:100%; max-width:600px; }
+  .small { background:rgba(255,255,255,.18); color:var(--fg); font-size:5vw; font-weight:700; padding:3vh 5vw; flex:1; }
+  .yes { background:#16a34a; color:#fff; } .no { background:#dc2626; color:#fff; }
+  #label { font-size:8.5vw; font-weight:800; line-height:1.1; min-height:2.2em; display:flex; align-items:center; justify-content:center; }
+  #time { font-size:40vw; font-weight:900; line-height:1; font-variant-numeric:tabular-nums; letter-spacing:-.03em; }
+  #count { font-size:6.5vw; font-weight:700; opacity:.9; }
+  #next { font-size:4.8vw; opacity:.85; min-height:1.4em; }
+  .row { display:flex; gap:12px; width:100%; max-width:600px; }
+  .field { display:flex; flex-direction:column; gap:6px; width:100%; max-width:600px; text-align:left; }
+  .field label { font-size:4.2vw; color:var(--muted); }
+  .num { display:flex; gap:8px; }
+  input { font:inherit; font-size:8vw; font-weight:800; width:100%; padding:1.5vh 4vw; border-radius:16px; border:2px solid #334155;
+    background:#0b1220; color:var(--fg); text-align:center; }
+  .sign { background:var(--card); color:var(--fg); font-size:7vw; font-weight:800; width:22vw; border-radius:16px; }
+  #rest-ask { width:100%; max-width:600px; }
+  table { border-collapse:collapse; width:100%; max-width:600px; font-size:4.5vw; }
+  td, th { padding:1vh 2vw; border-bottom:1px solid #334155; }
+  th { color:var(--muted); font-weight:600; text-align:left; }
+  td.v { font-weight:800; text-align:right; font-variant-numeric:tabular-nums; }
+  .hidden { display:none !important; }
   @media (orientation:landscape) { #time { font-size:30vh; } #label { font-size:8vh; } }
 </style>
 </head>
 <body>
+
+<!-- Accueil -->
 <section id="home" class="screen on">
   <h1>Coach escalade</h1>
   <button class="big" id="start">Séance du jour</button>
-  <p class="sub">Force max doigts (D-MAX)<br>Échauffement puis 5 suspensions de 10 s, 2 min de repos.<br>≈ 14 min. Monte le son et coupe le mode silencieux.</p>
+  <p class="sub" id="home-info"></p>
+  <button class="mid" id="go-tests">Tests</button>
 </section>
+
+<!-- Choix du test -->
+<section id="tests" class="screen">
+  <h2>Tests (réglette 20 mm)</h2>
+  <p class="sub">Conditions : 48 h sans effort intense, même heure, même réglette, prise semi-arquée. Poids pris le matin.</p>
+  <button class="mid" id="go-force">Force d'une main<br><span class="sub">pèse-personne, ≈ 20 min</span></button>
+  <button class="mid" id="go-lest">Lest max 10 s deux mains<br><span class="sub">≈ 15–25 min</span></button>
+  <button class="small" style="flex:0" data-home>Retour</button>
+</section>
+
+<!-- Préparation test force -->
+<section id="force-setup" class="screen">
+  <h2>Force d'une main</h2>
+  <p class="sub">Debout sur le pèse-personne sous la poutre, bras tendu, semi-arqué 4 doigts.
+    Pendant 7 s, transfère le maximum de poids sur la réglette. Note la lecture la plus basse de la balance.
+    3 essais par main, 2 min de repos.</p>
+  <div class="field"><label>Ton poids ce matin (kg)</label>
+    <input id="bw" inputmode="decimal" placeholder="72"></div>
+  <button class="big" id="force-start">Commencer</button>
+  <button class="small" style="flex:0" data-home>Retour</button>
+</section>
+
+<!-- Préparation / entre essais du test lest -->
+<section id="lest-setup" class="screen">
+  <h2 id="lest-title">Lest max 10 s</h2>
+  <p class="sub" id="lest-help">Deux mains, semi-arqué, 20 mm. Choisis un lest, tiens 10 s. Augmente jusqu'à l'échec.
+    Allègement : mets un lest négatif.</p>
+  <div id="lest-rest" class="hidden" style="font-size:22vw;font-weight:900;font-variant-numeric:tabular-nums">2:00</div>
+  <div class="field"><label>Lest pour cet essai (kg)</label>
+    <div class="num"><button class="sign" id="lest-sign">+</button><input id="lest-kg" inputmode="decimal" placeholder="0"></div></div>
+  <button class="big" id="lest-go">Lancer l'essai</button>
+  <div class="row"><button class="small" id="lest-end">Terminer le test</button><button class="small" data-home>Annuler</button></div>
+</section>
+
+<!-- Déroulé minuté -->
 <section id="run" class="screen">
   <div id="count"></div>
   <div id="label"></div>
   <div id="time">0</div>
   <div id="next"></div>
-  <div class="row">
+  <div id="rest-ask" class="field hidden"><label id="rest-ask-label"></label>
+    <input id="rest-ask-input" inputmode="decimal"></div>
+  <div class="row" id="run-btns">
     <button class="small" id="pause">Pause</button>
     <button class="small" id="stop">Arrêter</button>
   </div>
 </section>
+
+<!-- Question oui / non -->
+<section id="yesno" class="screen">
+  <h2 id="yesno-q">Tenu 10 s ?</h2>
+  <div class="row"><button class="big yes" id="yes">Oui</button><button class="big no" id="no">Non</button></div>
+</section>
+
+<!-- Résumé du test force -->
+<section id="force-sum" class="screen scroll">
+  <h2>Lectures de la balance (kg)</h2>
+  <p class="sub">Corrige ou complète si besoin.</p>
+  <div id="force-inputs" class="field"></div>
+  <button class="big" id="force-save">Calculer et enregistrer</button>
+</section>
+
+<!-- Résultat -->
+<section id="result" class="screen scroll">
+  <h2 id="result-title">Résultat</h2>
+  <table id="result-table"></table>
+  <p class="sub" id="result-note"></p>
+  <button class="big" data-home>Accueil</button>
+</section>
+
 <section id="done" class="screen">
   <h1>Séance terminée</h1>
-  <button class="big" id="home-btn">Accueil</button>
+  <button class="big" data-home>Accueil</button>
 </section>
+
 <video id="nosleep" playsinline muted loop style="position:absolute;width:1px;height:1px;opacity:0"
   src="data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAMxbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAB9AAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAlt0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAB9AAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAABAAAAAQAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAAfQAAAAAAABAAAAAAHTbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAAAgABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABfm1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAT5zdGJsAAAAvnN0c2QAAAAAAAAAAQAAAK5hdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAABAAEABIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAANGF2Y0MBZAAK/+EAF2dkAAqs2V7ARAAAAwAEAAADAAg8SJZYAQAGaOvjyyLA/fj4AAAAABBwYXNwAAAAAQAAAAEAAAAUYnRydAAAAAAAAAtEAAALRAAAABhzdHRzAAAAAAAAAAEAAAACAABAAAAAABRzdHNzAAAAAAAAAAEAAAABAAAAHHN0c2MAAAAAAAAAAQAAAAEAAAACAAAAAQAAABxzdHN6AAAAAAAAAAAAAAACAAACxQAAAAwAAAAUc3RjbwAAAAAAAAABAAADYQAAAGJ1ZHRhAAAAWm1ldGEAAAAAAAAAIWhkbHIAAAAAAAAAAG1kaXJhcHBsAAAAAAAAAAAAAAAALWlsc3QAAAAlqXRvbwAAAB1kYXRhAAAAAQAAAABMYXZmNjAuMTYuMTAwAAAACGZyZWUAAALZbWRhdAAAAq0GBf//qdxF6b3m2Ui3lizYINkj7u94MjY0IC0gY29yZSAxNjQgcjMxMDggMzFlMTlmOSAtIEguMjY0L01QRUctNCBBVkMgY29kZWMgLSBDb3B5bGVmdCAyMDAzLTIwMjMgLSBodHRwOi8vd3d3LnZpZGVvbGFuLm9yZy94MjY0Lmh0bWwgLSBvcHRpb25zOiBjYWJhYz0xIHJlZj0zIGRlYmxvY2s9MTowOjAgYW5hbHlzZT0weDM6MHgxMTMgbWU9aGV4IHN1Ym1lPTcgcHN5PTEgcHN5X3JkPTEuMDA6MC4wMCBtaXhlZF9yZWY9MSBtZV9yYW5nZT0xNiBjaHJvbWFfbWU9MSB0cmVsbGlzPTEgOHg4ZGN0PTEgY3FtPTAgZGVhZHpvbmU9MjEsMTEgZmFzdF9wc2tpcD0xIGNocm9tYV9xcF9vZmZzZXQ9LTIgdGhyZWFkcz0xIGxvb2thaGVhZF90aHJlYWRzPTEgc2xpY2VkX3RocmVhZHM9MCBucj0wIGRlY2ltYXRlPTEgaW50ZXJsYWNlZD0wIGJsdXJheV9jb21wYXQ9MCBjb25zdHJhaW5lZF9pbnRyYT0wIGJmcmFtZXM9MyBiX3B5cmFtaWQ9MiBiX2FkYXB0PTEgYl9iaWFzPTAgZGlyZWN0PTEgd2VpZ2h0Yj0xIG9wZW5fZ29wPTAgd2VpZ2h0cD0yIGtleWludD0yNTAga2V5aW50X21pbj0xIHNjZW5lY3V0PTQwIGludHJhX3JlZnJlc2g9MCByY19sb29rYWhlYWQ9NDAgcmM9Y3JmIG1idHJlZT0xIGNyZj0yMy4wIHFjb21wPTAuNjAgcXBtaW49MCBxcG1heD02OSBxcHN0ZXA9NCBpcF9yYXRpbz0xLjQwIGFxPTE6MS4wMACAAAAAEGWIhAAW//730z/MsuyaJYEAAAAIQZohbEFf/vA="></video>
 <script>
 'use strict';
-// ---------------------------------------------------------------------------
-// Séance D-MAX — paramètres : voir SOURCES.md (revue §4.3, R1, R7).
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// Paramètres : chaque valeur renvoie à SOURCES.md (revue = docs/revue-escalade.pdf).
+// ===========================================================================
 const WARM_CARDIO_S = 120;          // ECH : 2 min cardio léger (§4.3)
 const WARM_MOBILITY_S = 60;         // ECH : 1 min mobilité épaules et poignets (§4.3)
-const WARM_HANGS = [30, 50, 70];    // ECH : suspensions à ~30, 50, 70 %, pieds au sol (§4.3, R7)
+const WARM_HANGS = [30, 50, 70];    // ECH : ~30, 50, 70 %, pieds au sol (§4.3, R7)
 const WARM_HANG_S = 7;              // ECH : 7 s (§4.3, R7)
 const WARM_REST_S = 30;             // ECH : 30 s de repos (§4.3, R7)
 const MAX_REPS = 5;                 // D-MAX : 5 suspensions (§4.3, R1)
 const MAX_HANG_S = 10;              // D-MAX : 10 s (§4.3, R1)
 const MAX_REST_S = 120;             // D-MAX : 2 min de repos (§4.3, R1)
-// HYPOTHÈSE H3 (SOURCES.md) : la revue demande « prêt », « suspends », « lâche » et un compte
-// à rebours (§4.1) sans en fixer les durées. Choix : « prêt » 5 s avant, bips à 3-2-1.
+const DMAX_PCT = 0.80;              // D-MAX : charge initiale 80 % du lest max 10 s (§4.4.1) — lecture : HYPOTHÈSE H5
+const ROUND_KG = 0.5;               // arrondi à 0,5 kg (§4.4.2)
+const FORCE_TRIALS = 3;             // Test force : 3 essais par main (§2.8)
+const FORCE_PULL_S = 7;             // Test force : ≤ 7 s (§2.8)
+const FORCE_REST_S = 120;           // Test force : 2 min de repos (§2.8)
+const FORCE_HANDS = ['droite', 'gauche']; // ordre alterné : HYPOTHÈSE H6
+const LEST_HANG_S = 10;             // Lest max tenu 10 s (§2.8, §4.2)
+const LEST_REST_S = 120;            // repos entre essais du test lest : HYPOTHÈSE H4 (repris du test force §2.8)
+const MDC_RATIO = 0.10;             // changement réel ≥ 0,10 de ratio (§2.8, §4.7)
+// HYPOTHÈSE H3 : « prêt » 5 s avant, bips à 3-2-1 (§4.1 ne fixe pas les durées).
 const READY_S = 5;
 
-function buildPlan() {
+// --- Stockage (sur le téléphone) ---------------------------------------------
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('coach.' + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('coach.' + k, JSON.stringify(v)); } catch (e) {} },
+};
+const num = s => { const v = parseFloat(String(s || '').replace(',', '.')); return isFinite(v) ? v : null; };
+const fmt = (v, d = 1) => v == null ? '—' : v.toFixed(d).replace('.', ',');
+const signed = v => (v > 0 ? '+' : v < 0 ? '−' : '') + fmt(Math.abs(v)) + ' kg';
+const roundTo = (v, step) => Math.round(v / step) * step;
+
+function lastLest() { const t = store.get('tests', []).filter(x => x.type === 'lest'); return t.length ? t[t.length - 1] : null; }
+function lastForce() { const t = store.get('tests', []).filter(x => x.type === 'force'); return t.length ? t[t.length - 1] : null; }
+function dmaxLest() { const l = lastLest(); return l ? roundTo(l.lestMax * DMAX_PCT, ROUND_KG) : null; }
+
+// --- Plans ---------------------------------------------------------------------
+function warmPlan() {
   const p = [];
-  p.push({ kind:'warm', label:'Cardio léger', dur:WARM_CARDIO_S,
-           say:'Échauffement. Deux minutes de cardio léger.' });
-  p.push({ kind:'warm', label:'Mobilité épaules et poignets', dur:WARM_MOBILITY_S,
-           say:'Une minute de mobilité, épaules et poignets.' });
+  p.push({ kind:'warm', label:'Cardio léger', dur:WARM_CARDIO_S, say:'Échauffement. Deux minutes de cardio léger.' });
+  p.push({ kind:'warm', label:'Mobilité épaules et poignets', dur:WARM_MOBILITY_S, say:'Une minute de mobilité, épaules et poignets.' });
   WARM_HANGS.forEach((pct, i) => {
-    p.push({ kind:'hang', label:'Pieds au sol, ' + pct + ' %', dur:WARM_HANG_S,
-             count:'Échauffement ' + (i+1) + ' / ' + WARM_HANGS.length,
+    p.push({ kind:'hang', label:'Pieds au sol, ' + pct + ' %', dur:WARM_HANG_S, count:'Échauffement ' + (i+1) + ' / ' + WARM_HANGS.length,
              say:'Suspends. ' + pct + ' pour cent, pieds au sol.' });
     p.push({ kind:'rest', label:'Repos', dur:WARM_REST_S, say:'Lâche. Repos trente secondes.' });
   });
+  return p;
+}
+function dmaxPlan() {
+  const p = warmPlan(), l = dmaxLest();
+  const lab = l == null ? 'Suspension max' : 'Lest ' + signed(l);
   for (let i = 1; i <= MAX_REPS; i++) {
-    p.push({ kind:'hang', label:'Suspension max', dur:MAX_HANG_S, count:'Suspension ' + i + ' / ' + MAX_REPS,
-             say:'Suspends. Série ' + i + ' sur ' + MAX_REPS + '.' });
+    p.push({ kind:'hang', label:lab, dur:MAX_HANG_S, count:'Suspension ' + i + ' / ' + MAX_REPS, say:'Suspends. Série ' + i + ' sur ' + MAX_REPS + '.' });
     if (i < MAX_REPS) p.push({ kind:'rest', label:'Repos', dur:MAX_REST_S, say:'Lâche. Repos deux minutes.' });
+  }
+  return p;
+}
+function forcePlan() {
+  const p = warmPlan(); let n = 0;
+  for (let t = 1; t <= FORCE_TRIALS; t++) for (const h of FORCE_HANDS) {
+    n++;
+    p.push({ kind:'hang', label:'Main ' + h, dur:FORCE_PULL_S, count:'Essai ' + t + ' / ' + FORCE_TRIALS,
+             say:'Tire. Main ' + h + '.' });
+    const ask = { key:n - 1, label:'Lecture la plus basse — main ' + h + ', essai ' + t + ' (kg)' };
+    if (n < FORCE_TRIALS * FORCE_HANDS.length)
+      p.push({ kind:'rest', label:'Repos', dur:FORCE_REST_S, say:'Lâche. Note la balance. Repos deux minutes.', ask });
+    else p.push({ kind:'end', say:'Lâche. Note la balance.' });
   }
   return p;
 }
@@ -95,14 +212,12 @@ function buildPlan() {
 let ctx = null, voice = null;
 function initAudio() {
   try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
-  ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
-  ctx.resume();
+  try { ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); ctx.resume(); } catch (e) {}
   const pick = () => {
     const v = speechSynthesis.getVoices();
     voice = v.find(x => /^fr[-_]FR/i.test(x.lang)) || v.find(x => /^fr/i.test(x.lang)) || null;
   };
-  pick(); speechSynthesis.onvoiceschanged = pick;
-  say(' ');  // iOS : la voix doit être débloquée par un tapotement
+  try { pick(); speechSynthesis.onvoiceschanged = pick; say(' '); } catch (e) {}
 }
 function beep(freq, len) {
   if (!ctx) return;
@@ -120,12 +235,12 @@ function say(text) {
   const u = new SpeechSynthesisUtterance(text);
   u.lang = 'fr-FR'; if (voice) u.voice = voice; u.rate = 1.0; u.volume = 1;
   speechSynthesis.speak(u);
-  window.__said && window.__said.push(text);
 }
 
 // --- Écran allumé ------------------------------------------------------------
-let lock = null;
+let lock = null, awake = false;
 async function keepAwake(on) {
+  awake = on;
   const vid = document.getElementById('nosleep');
   if (on) {
     try { lock = await navigator.wakeLock.request('screen'); } catch (e) { lock = null; }
@@ -135,72 +250,204 @@ async function keepAwake(on) {
   }
 }
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && state === 'running') keepAwake(true);
+  if (document.visibilityState === 'visible' && awake) keepAwake(true);
 });
 
-// --- Déroulé -------------------------------------------------------------------
+// --- Moteur de déroulé ----------------------------------------------------------
 const $ = id => document.getElementById(id);
-let plan = [], idx = 0, stepStart = 0, pausedAt = 0, state = 'idle', fired = new Set(), timer = null;
+let plan = [], idx = 0, stepStart = 0, pausedAt = 0, state = 'idle', fired = new Set(), timer = null, onEnd = null;
+let answers = [];
 const now = () => performance.now();
-
 function show(id) { document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id)); }
 function nextText(i) {
-  const n = plan[i + 1]; if (!n) return 'Dernière';
+  const n = plan[i + 1]; if (!n || n.kind === 'end') return 'Dernière';
   return 'Ensuite : ' + (n.kind === 'hang' ? n.label + ' (' + n.dur + ' s)' : n.label);
 }
+function saveRestAnswer() {
+  const s = plan[idx];
+  if (s && s.ask) { const v = num($('rest-ask-input').value); if (v != null) answers[s.ask.key] = v; }
+}
 function enter(i) {
+  saveRestAnswer();
   idx = i; stepStart = now(); fired = new Set();
   const s = plan[i];
+  if (s.kind === 'end') { setTimeout(() => say(s.say), 300); return finishRun(); }
   document.body.className = s.kind;
   $('label').textContent = s.label; $('count').textContent = s.count || '';
   $('next').textContent = nextText(i);
+  $('rest-ask').classList.toggle('hidden', !s.ask);
+  if (s.ask) { $('rest-ask-label').textContent = s.ask.label; $('rest-ask-input').value = answers[s.ask.key] ?? ''; }
   if (s.kind === 'hang') beep(1320, 0.45); else beep(660, 0.3);
   setTimeout(() => say(s.say), s.kind === 'hang' ? 450 : 300);
 }
 function tick() {
   if (state !== 'running') return;
   const s = plan[idx];
-  const el = (now() - stepStart) / 1000;
-  const left = s.dur - el;
+  const left = s.dur - (now() - stepStart) / 1000;
   const shown = Math.max(0, Math.ceil(left));
   $('time').textContent = shown >= 60 ? Math.floor(shown/60) + ':' + String(shown%60).padStart(2,'0') : shown;
   const next = plan[idx + 1];
-  // Avant une suspension : « prêt » puis bips 3-2-1 (hypothèse H3)
-  if (next && next.kind === 'hang' && s.dur > READY_S + 1 && left <= READY_S && !fired.has('ready')) {
-    fired.add('ready'); say('Prêt.');
-  }
+  if (next && next.kind === 'hang' && s.dur > READY_S + 1 && left <= READY_S && !fired.has('ready')) { fired.add('ready'); say('Prêt.'); }
   for (const k of [3, 2, 1]) {
     if (left <= k && left > k - 1 && !fired.has(k) && s.dur > k) {
       fired.add(k);
       if (s.kind === 'hang' || (next && next.kind === 'hang')) beep(880, 0.15);
     }
   }
-  if (left <= 0) {
-    if (idx + 1 < plan.length) enter(idx + 1); else finish();
-  }
+  if (left <= 0) { if (idx + 1 < plan.length) enter(idx + 1); else finishRun(); }
 }
-function finish() {
-  state = 'idle'; clearInterval(timer); keepAwake(false);
-  document.body.className = ''; beep(1320, 0.3); setTimeout(() => beep(1760, 0.6), 350);
-  setTimeout(() => say('Lâche. Séance terminée. Bravo.'), 900);
-  show('done');
-}
-$('start').onclick = () => {
+function runPlan(p, end) {
   initAudio(); keepAwake(true);
-  plan = buildPlan(); state = 'running'; show('run');
-  $('pause').textContent = 'Pause';
+  plan = p; onEnd = end; state = 'running'; show('run'); $('pause').textContent = 'Pause';
   enter(0); clearInterval(timer); timer = setInterval(tick, 100); tick();
-};
+}
+function finishRun() {
+  saveRestAnswer();
+  state = 'idle'; clearInterval(timer); document.body.className = ''; $('rest-ask').classList.add('hidden');
+  const cb = onEnd; onEnd = null; cb && cb();
+}
+function stopAll() {
+  state = 'idle'; clearInterval(timer); clearInterval(lestTimer); keepAwake(false);
+  try { speechSynthesis.cancel(); } catch (e) {}
+  document.body.className = ''; $('rest-ask').classList.add('hidden'); refreshHome(); show('home');
+}
 $('pause').onclick = () => {
   if (state === 'running') { state = 'paused'; pausedAt = now(); speechSynthesis.cancel(); $('pause').textContent = 'Reprendre'; say('Pause.'); }
   else if (state === 'paused') { stepStart += now() - pausedAt; state = 'running'; $('pause').textContent = 'Pause'; say('On reprend.'); }
 };
-$('stop').onclick = () => {
-  state = 'idle'; clearInterval(timer); keepAwake(false); speechSynthesis.cancel();
-  document.body.className = ''; show('home');
-};
-$('home-btn').onclick = () => show('home');
+$('stop').onclick = stopAll;
+document.querySelectorAll('[data-home]').forEach(b => b.onclick = stopAll);
 
+// --- Accueil -------------------------------------------------------------------
+function refreshHome() {
+  const l = dmaxLest(), f = lastForce();
+  let t = 'Force max doigts : échauffement puis 5 suspensions de 10 s, 2 min de repos (≈ 14 min).';
+  t += l == null ? '<br><b>Fais le test « lest max » pour connaître ta charge.</b>' : '<br>Charge du jour : <b>lest ' + signed(l) + '</b>.';
+  if (f) t += '<br>Dernier ratio de force : ' + fmt(f.ratioD, 2) + ' (D) · ' + fmt(f.ratioG, 2) + ' (G).';
+  t += '<br>Monte le son et coupe le mode silencieux.';
+  $('home-info').innerHTML = t;
+}
+$('start').onclick = () => runPlan(dmaxPlan(), () => {
+  keepAwake(false); beep(1320, 0.3); setTimeout(() => beep(1760, 0.6), 350);
+  setTimeout(() => say('Lâche. Séance terminée. Bravo.'), 900); show('done');
+});
+$('go-tests').onclick = () => show('tests');
+
+// --- Test force d'une main --------------------------------------------------------
+let bodyW = null;
+$('go-force').onclick = () => { const p = store.get('profile', {}); $('bw').value = p.poids ? fmt(p.poids) : ''; show('force-setup'); };
+$('force-start').onclick = () => {
+  bodyW = num($('bw').value);
+  if (!bodyW || bodyW < 30 || bodyW > 200) { $('bw').focus(); return; }
+  const p = store.get('profile', {}); p.poids = bodyW; store.set('profile', p);
+  answers = [];
+  runPlan(forcePlan(), forceSummary);
+};
+function forceSummary() {
+  keepAwake(false);
+  const box = $('force-inputs'); box.innerHTML = ''; let n = 0;
+  for (let t = 1; t <= FORCE_TRIALS; t++) for (const h of FORCE_HANDS) {
+    const k = n++;
+    const d = document.createElement('div'); d.className = 'field';
+    d.innerHTML = '<label>Main ' + h + ', essai ' + t + '</label><input inputmode="decimal" data-k="' + k + '">';
+    d.querySelector('input').value = answers[k] != null ? fmt(answers[k]) : '';
+    box.appendChild(d);
+  }
+  show('force-sum');
+}
+$('force-save').onclick = () => {
+  document.querySelectorAll('#force-inputs input').forEach(i => { const v = num(i.value); answers[+i.dataset.k] = v; });
+  // Force = poids du corps − lecture minimale de la balance (§2.8) ; on garde le meilleur essai par main.
+  const best = {};
+  let n = 0;
+  for (let t = 1; t <= FORCE_TRIALS; t++) for (const h of FORCE_HANDS) {
+    const r = answers[n++]; if (r == null) continue;
+    const f = bodyW - r; if (best[h] == null || f > best[h]) best[h] = f;
+  }
+  const rec = { type:'force', date:new Date().toISOString(), poids:bodyW, lectures:answers.slice(),
+    forceD:best.droite ?? null, forceG:best.gauche ?? null,
+    ratioD:best.droite != null ? best.droite / bodyW : null, ratioG:best.gauche != null ? best.gauche / bodyW : null };
+  const prev = lastForce();
+  const tests = store.get('tests', []); tests.push(rec); store.set('tests', tests);
+  $('result-title').textContent = 'Force d\'une main';
+  $('result-table').innerHTML =
+    '<tr><th></th><th style="text-align:right">Droite</th><th style="text-align:right">Gauche</th></tr>' +
+    '<tr><td>Force (kg)</td><td class="v">' + fmt(rec.forceD) + '</td><td class="v">' + fmt(rec.forceG) + '</td></tr>' +
+    '<tr><td>Ratio</td><td class="v">' + fmt(rec.ratioD, 2) + '</td><td class="v">' + fmt(rec.ratioG, 2) + '</td></tr>' +
+    '<tr><td>Poids</td><td class="v" colspan="2">' + fmt(bodyW) + ' kg</td></tr>';
+  let note = 'Ratio = force d\'une main ÷ poids du corps.';
+  if (prev) {
+    const dD = rec.ratioD - prev.ratioD, dG = rec.ratioG - prev.ratioG;
+    note += ' Depuis le dernier test : ' + fmt(dD, 2) + ' (D), ' + fmt(dG, 2) + ' (G). ' +
+      'Seul un écart d\'au moins ' + fmt(MDC_RATIO, 2) + ' est sûrement réel ; en dessous, à confirmer par un second test.';
+  }
+  $('result-note').textContent = note;
+  show('result');
+};
+
+// --- Test lest max 10 s -----------------------------------------------------------
+let lestTrials = [], lestSign = 1, lestTimer = null;
+function setSign(s) { lestSign = s; $('lest-sign').textContent = s > 0 ? '+' : '−'; }
+$('lest-sign').onclick = () => setSign(-lestSign);
+$('go-lest').onclick = () => {
+  lestTrials = []; setSign(1); $('lest-kg').value = '';
+  $('lest-title').textContent = 'Lest max 10 s'; $('lest-rest').classList.add('hidden');
+  $('lest-help').classList.remove('hidden'); $('lest-end').classList.add('hidden');
+  show('lest-setup');
+};
+$('lest-go').onclick = () => {
+  const v = num($('lest-kg').value); if (v == null) { $('lest-kg').focus(); return; }
+  clearInterval(lestTimer);
+  const lest = lestSign * Math.abs(v);
+  const first = lestTrials.length === 0;
+  const p = first ? warmPlan() : [];
+  p.push({ kind:'rest', label:'Prépare-toi', dur:READY_S + 1, count:'Essai ' + (lestTrials.length + 1), say:'Lest ' + (lest < 0 ? 'moins ' : '') + fmt(Math.abs(lest)) + ' kilos.' });
+  p.push({ kind:'hang', label:'Lest ' + signed(lest), dur:LEST_HANG_S, count:'Essai ' + (lestTrials.length + 1), say:'Suspends.' });
+  runPlan(p, () => { say('Lâche.'); askHeld(lest); });
+};
+function askHeld(lest) {
+  $('yesno-q').textContent = 'Tenu 10 s avec ' + signed(lest) + ' ?';
+  show('yesno');
+  $('yes').onclick = () => afterTrial(lest, true);
+  $('no').onclick = () => afterTrial(lest, false);
+}
+function afterTrial(lest, held) {
+  lestTrials.push({ lest, held });
+  $('lest-title').textContent = 'Repos';
+  $('lest-help').classList.add('hidden'); $('lest-end').classList.remove('hidden');
+  $('lest-rest').classList.remove('hidden');
+  show('lest-setup');
+  let end = now() + LEST_REST_S * 1000, warned = false;
+  clearInterval(lestTimer);
+  lestTimer = setInterval(() => {
+    const left = Math.max(0, Math.ceil((end - now()) / 1000));
+    $('lest-rest').textContent = Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+    if (left <= 0) { clearInterval(lestTimer); beep(1320, 0.4); say('Repos terminé.'); }
+  }, 200);
+}
+$('lest-end').onclick = () => {
+  clearInterval(lestTimer); keepAwake(false);
+  const ok = lestTrials.filter(t => t.held);
+  const tab = $('result-table');
+  $('result-title').textContent = 'Lest max 10 s';
+  if (!ok.length) {
+    tab.innerHTML = ''; $('result-note').textContent = 'Aucun essai tenu 10 s : rien n\'est enregistré. Recommence avec un lest plus faible (ou un allègement).';
+    return show('result');
+  }
+  const lestMax = Math.max(...ok.map(t => t.lest));
+  const p = store.get('profile', {});
+  const tests = store.get('tests', []);
+  tests.push({ type:'lest', date:new Date().toISOString(), lestMax, essais:lestTrials.slice(), poids:p.poids ?? null });
+  store.set('tests', tests);
+  const charge = roundTo(lestMax * DMAX_PCT, ROUND_KG);
+  tab.innerHTML = lestTrials.map((t, i) => '<tr><td>Essai ' + (i + 1) + '</td><td class="v">' + signed(t.lest) + '</td><td class="v">' + (t.held ? 'tenu' : 'lâché') + '</td></tr>').join('') +
+    '<tr><td><b>Lest max</b></td><td class="v" colspan="2">' + signed(lestMax) + '</td></tr>' +
+    '<tr><td><b>Charge séance</b></td><td class="v" colspan="2">' + signed(charge) + '</td></tr>';
+  $('result-note').textContent = 'Charge des suspensions max = 80 % du lest max, arrondie à 0,5 kg.';
+  show('result');
+};
+
+refreshHome();
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 </script>
 </body>
