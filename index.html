@@ -467,9 +467,9 @@ document.querySelectorAll('[data-home]').forEach(b => b.onclick = stopAll);
 // ===========================================================================
 // Programme : phases (§2.6, §4.6) et cohabitation avec le bloc (§4.5).
 // ===========================================================================
-const PROGRAM_START = new Date(2026, 10, 2);  // lundi 2 nov. 2026 : début de P1 — HYPOTHÈSE H14
+const PROGRAM_START = new Date(2026, 10, 15); // dimanche 15 nov. 2026 : début de P1 (choix de Théo, D11) ; semaines de 7 jours à partir de cette date
 const P1_WEEKS = 8;                           // P1 = nov.–déc., 8 semaines (§2.6)
-const P1_END = new Date(2026, 11, 28);        // lundi 2 nov. + 8 semaines
+const P1_END = new Date(2027, 0, 10);         // 15 nov. + 8 semaines
 const DELOAD_EVERY = 4;                       // semaine 4 = DELOAD (§4.6, R19)
 const DELOAD_FACTOR = 0.5;                    // DELOAD : nombre de séries −50 %, charges inchangées (§4.3)
 const P1_DMAX_PER_WEEK = 2;                   // P1 : poutre 2/sem (§2.6)
@@ -478,10 +478,11 @@ const MAX_INTENSE_DAYS = 3;                   // ≤ 3 jours doigts intenses/sem
 const DAY = 864e5;
 const dayKey = d => { const x = new Date(d); return x.getFullYear() + '-' + String(x.getMonth()+1).padStart(2,'0') + '-' + String(x.getDate()).padStart(2,'0'); };
 const midnight = d => { const x = new Date(d); x.setHours(0,0,0,0); return x; };
-function mondayOf(d) { const x = midnight(d); const wd = (x.getDay() + 6) % 7; return new Date(x.getTime() - wd * DAY); }
+// « Semaine » = bloc de 7 jours ancré sur le début du programme.
+function mondayOf(d) { const x = midnight(d), a = midnight(PROGRAM_START); const k = Math.floor(Math.round((x - a) / DAY) / 7); return new Date(a.getTime() + k * 7 * DAY); }
 function phaseInfo(d = new Date()) {
   const week = Math.floor((mondayOf(d) - mondayOf(PROGRAM_START)) / (7 * DAY)) + 1;
-  if (d < PROGRAM_START) return { code:'—', name:'Avant le programme', week, deload:false };
+  if (d < PROGRAM_START) return { code:'—', name:'Avant la phase P1 (début le dimanche 15 novembre)', week, deload:false };
   if (d < P1_END) return { code:'P1', name:'Force de base', week, weeks:P1_WEEKS, deload: week % DELOAD_EVERY === 0 };
   return { code:'P2', name:'Phase suivante (à programmer)', week, deload:false };
 }
