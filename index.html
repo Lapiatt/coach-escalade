@@ -64,9 +64,32 @@
     <label>Douleur aux doigts ce matin (après la séance d'hier)</label>
     <div class="scale" data-scale="morning"></div>
   </div>
+  <p class="sub" id="phase-line"></p>
   <button class="big" id="start">Séance du jour</button>
+  <p class="sub" id="reco-why"></p>
+  <button class="mid" id="go-climb">J'ai grimpé</button>
   <p class="sub" id="home-info"></p>
+  <p class="sub" style="margin-bottom:-2vh">Choisir une autre séance :</p>
+  <div class="row"><button class="small" id="other-dmax">Force max</button><button class="small" id="other-rh">Renfo</button></div>
   <div class="row"><button class="small" id="go-tests">Tests</button><button class="small" id="go-hist">Historique</button></div>
+</section>
+
+<!-- Déclarer une séance de grimpe -->
+<section id="climb" class="screen">
+  <h2>J'ai grimpé</h2>
+  <div class="field"><label>Aujourd'hui</label>
+    <div class="row"><button class="small" data-climb="0,1">Bloc ou grimpe intense</button><button class="small" data-climb="0,0">Grimpe facile</button></div></div>
+  <div class="field"><label>Hier</label>
+    <div class="row"><button class="small" data-climb="1,1">Bloc ou grimpe intense</button><button class="small" data-climb="1,0">Grimpe facile</button></div></div>
+  <button class="small" style="flex:0" data-home>Retour</button>
+</section>
+
+<!-- Renfo sans doigts R-H (§4.3) -->
+<section id="rh" class="screen scroll">
+  <h2>Renfo sans doigts (R-H)</h2>
+  <p class="sub" id="rh-content"></p>
+  <button class="big" id="rh-done">Séance faite</button>
+  <button class="small" style="flex:0" data-home>Retour</button>
 </section>
 
 <!-- Forme du jour (§4.1) -->
@@ -267,7 +290,7 @@ function dmaxState() {
   let lest = roundTo(l.lestMax * DMAX_PCT, ROUND_KG), easy = 0, fail = 0;
   const notes = [];
   const all = store.get('sessions', []).filter(x => x.type === 'D-MAX');
-  all.filter(x => x.date > l.date && x.complete && x.ressenti).forEach(x => {
+  all.filter(x => x.date > l.date && x.complete && x.ressenti && !x.deload).forEach(x => {
     if (x.ressenti === 'facile') {
       easy++; fail = 0;
       if (easy === 2 && bw) { const up = roundTo(PROG_UP_BW * bw, ROUND_KG); lest += up; easy = 0; notes.push('+' + fmt(up) + ' kg après 2 séances faciles'); }
@@ -278,7 +301,8 @@ function dmaxState() {
   });
   const last = all[all.length - 1];
   const half = !!(last && last.douleurLendemain != null && last.douleurDoigts != null && last.douleurLendemain > last.douleurDoigts);
-  return { lest, reps: half ? Math.ceil(MAX_REPS * HALF_SERIES) : MAX_REPS, half, notes };
+  const deload = phaseInfo().deload;
+  return { lest, reps: (half || deload) ? Math.ceil(MAX_REPS * HALF_SERIES) : MAX_REPS, half, deload, notes };
 }
 function dmaxLest() { return dmaxState().lest; }
 // « Une semaine sans poutre » : douleur doigts ≥ 3 deux séances de suite (§4.8) ou douleur du lendemain plus forte deux fois en 14 jours (§4.4).
@@ -440,10 +464,60 @@ $('stop').onclick = stopAll;
 document.querySelectorAll('[data-home]').forEach(b => b.onclick = stopAll);
 
 // --- Accueil -------------------------------------------------------------------
+// ===========================================================================
+// Programme : phases (§2.6, §4.6) et cohabitation avec le bloc (§4.5).
+// ===========================================================================
+const PROGRAM_START = new Date(2026, 10, 2);  // lundi 2 nov. 2026 : début de P1 — HYPOTHÈSE H14
+const P1_WEEKS = 8;                           // P1 = nov.–déc., 8 semaines (§2.6)
+const P1_END = new Date(2026, 11, 28);        // lundi 2 nov. + 8 semaines
+const DELOAD_EVERY = 4;                       // semaine 4 = DELOAD (§4.6, R19)
+const DELOAD_FACTOR = 0.5;                    // DELOAD : nombre de séries −50 %, charges inchangées (§4.3)
+const P1_DMAX_PER_WEEK = 2;                   // P1 : poutre 2/sem (§2.6)
+const P1_RENFO_PER_WEEK = 2;                  // P1 : renfo général 2/sem (§2.6)
+const MAX_INTENSE_DAYS = 3;                   // ≤ 3 jours doigts intenses/sem en P1–P2 (§4.5)
+const DAY = 864e5;
+const dayKey = d => { const x = new Date(d); return x.getFullYear() + '-' + String(x.getMonth()+1).padStart(2,'0') + '-' + String(x.getDate()).padStart(2,'0'); };
+const midnight = d => { const x = new Date(d); x.setHours(0,0,0,0); return x; };
+function mondayOf(d) { const x = midnight(d); const wd = (x.getDay() + 6) % 7; return new Date(x.getTime() - wd * DAY); }
+function phaseInfo(d = new Date()) {
+  const week = Math.floor((mondayOf(d) - mondayOf(PROGRAM_START)) / (7 * DAY)) + 1;
+  if (d < PROGRAM_START) return { code:'—', name:'Avant le programme', week, deload:false };
+  if (d < P1_END) return { code:'P1', name:'Force de base', week, weeks:P1_WEEKS, deload: week % DELOAD_EVERY === 0 };
+  return { code:'P2', name:'Phase suivante (à programmer)', week, deload:false };
+}
+function dmaxDays() { return store.get('sessions', []).filter(x => x.type === 'D-MAX').map(x => dayKey(x.date)); }
+function climbs() { return store.get('climbs', []); }
+function intenseDays() { return new Set(dmaxDays().concat(climbs().filter(c => c.intense).map(c => dayKey(c.date)))); }
+function recommend(d = new Date()) {
+  const today = dayKey(d), yest = dayKey(d.getTime() - DAY), mon = mondayOf(d).getTime();
+  const inWeek = iso => new Date(iso).getTime() >= mon && midnight(iso) <= midnight(d);
+  const ses = store.get('sessions', []);
+  const dmaxWeek = ses.filter(x => x.type === 'D-MAX' && inWeek(x.date) && dayKey(x.date) !== today).length;
+  const rhWeek = ses.filter(x => x.type === 'R-H' && inWeek(x.date)).length;
+  const intense = intenseDays();
+  const intenseWeek = [...intense].filter(k => k !== today && new Date(k + 'T12:00').getTime() >= mon).length;
+  const climbedToday = climbs().some(c => dayKey(c.date) === today);
+  if (ses.some(x => x.type === 'D-MAX' && dayKey(x.date) === today)) return { type:'done', why:'Séance doigts déjà faite aujourd\'hui. Grimpe ensuite si tu veux (poutre avant la grimpe, §4.5).' };
+  const no = [];
+  if (climbedToday) no.push('tu as déjà grimpé aujourd\'hui : jamais de poutre après la grimpe (§4.5)');
+  if (intense.has(yest)) no.push('jour doigts intense hier : 48 h entre deux jours doigts intenses (§4.5, R16)');
+  if (dmaxWeek >= P1_DMAX_PER_WEEK) no.push('déjà ' + dmaxWeek + ' séances de poutre cette semaine (P1 : 2/sem, §2.6)');
+  if (intenseWeek >= MAX_INTENSE_DAYS) no.push('déjà ' + intenseWeek + ' jours doigts intenses cette semaine (max 3, §4.5)');
+  if (!no.length) return { type:'D-MAX', why:'Poutre puis bloc le même jour si tu grimpes (§4.5).' };
+  const rhToday = ses.some(x => x.type === 'R-H' && dayKey(x.date) === today);
+  if (rhWeek < P1_RENFO_PER_WEEK && !rhToday) return { type:'R-H', why:'Pas de poutre : ' + no.join(' ; ') + '.' };
+  return { type:'repos', why:'Pas de poutre : ' + no.join(' ; ') + '. ' + (rhToday ? 'Renfo fait aujourd\'hui.' : 'Renfo déjà fait 2 fois cette semaine (P1 : 2/sem).') };
+}
+
 function refreshHome() {
-  const st = dmaxState(), l = st.lest, f = lastForce();
+  const st = dmaxState(), l = st.lest, f = lastForce(), ph = phaseInfo(), rc = recommend();
+  $('phase-line').innerHTML = ph.code === 'P1' ? 'Phase P1 · ' + ph.name + ' · semaine ' + ph.week + '/' + ph.weeks + (ph.deload ? ' · <b>semaine allégée</b>' : '') : ph.name;
+  const LBL = { 'D-MAX':'Séance du jour : force max doigts', 'R-H':'Séance du jour : renfo sans doigts', repos:'Aujourd\'hui : repos', done:'Séance du jour faite' };
+  $('start').textContent = LBL[rc.type]; $('start').dataset.type = rc.type;
+  $('reco-why').textContent = rc.why;
   let t = 'Force max doigts : échauffement puis ' + st.reps + ' suspensions de 10 s, 2 min de repos.';
   if (st.half) t += '<br><b>Moitié des séries</b> : douleur plus forte le lendemain de la dernière séance (§4.4).';
+  else if (st.deload) t += '<br><b>Semaine allégée</b> : moitié des séries, même charge (§4.3, §4.6).';
   t += l == null ? '<br><b>Fais le test « lest max » pour connaître ta charge.</b>' : '<br>Charge du jour : <b>lest ' + signed(l) + '</b>' +
     (st.notes.length ? ' (' + st.notes[st.notes.length - 1] + ')' : '') + '.';
   if (f) t += '<br>Dernier ratio de force : ' + fmt(f.ratioD, 2) + ' (D) · ' + fmt(f.ratioG, 2) + ' (G).';
@@ -480,10 +554,42 @@ function pick(sel, attr, val) { document.querySelectorAll(sel).forEach(b => b.cl
 // --- Forme du jour (§4.1) et règles « forme du jour » (§4.4, §4.8) ------------------
 const PAIN_LIMIT = 3;   // douleur ≥ 3/10 (§4.4 forme du jour 1, §4.8)
 let form = {};
-$('start').onclick = () => {
-  form = { grimpe24h:0 };
-  ['doigts','coude','epaule'].forEach(k => setScale(k, 0)); pick('[data-g]', 'data-g', 0);
+function openDmax() {
+  const d = new Date(), recent = climbs().some(c => c.intense && d - new Date(c.date) < DAY);
+  form = { grimpe24h: recent ? 1 : 0 };
+  ['doigts','coude','epaule'].forEach(k => setScale(k, 0)); pick('[data-g]', 'data-g', form.grimpe24h);
   formWarn(); show('form');
+}
+$('start').onclick = () => {
+  const t = $('start').dataset.type;
+  if (t === 'D-MAX') openDmax(); else if (t === 'R-H') openRH();
+};
+$('other-dmax').onclick = () => { if ($('other-dmax').disabled) return; openDmax(); };
+$('other-rh').onclick = () => openRH();
+
+// --- Déclarer une séance de grimpe (1 tapotement) ---------------------------------
+$('go-climb').onclick = () => show('climb');
+document.querySelectorAll('[data-climb]').forEach(b => b.onclick = () => {
+  const [ago, intense] = b.dataset.climb.split(',').map(Number);
+  const d = new Date(); if (ago) { d.setDate(d.getDate() - 1); d.setHours(18, 0, 0, 0); }
+  const c = climbs(); c.push({ date:d.toISOString(), intense:!!intense }); store.set('climbs', c);
+  stopAll();
+});
+
+// --- Renfo sans doigts R-H (§4.3) — contenu affiché ; séance guidée à venir --------------
+function openRH() {
+  const dl = phaseInfo().deload;
+  $('rh-content').innerHTML = 'Contenu de la revue (§4.3), environ 25 min, en supersets avec 90 s de repos :<br><br>' +
+    '• Squat ou soulevé de terre trap-bar : ' + (dl ? '2' : '3–4') + ' séries de 3–5 répétitions<br>' +
+    '• Traction lestée : ' + (dl ? '2' : '3') + ' séries de 4–6 répétitions<br>' +
+    '• Poussée (pompes lestées, dips ou développé) : ' + (dl ? '2' : '3') + ' séries de 6–10 répétitions' +
+    (dl ? '<br><br><b>Semaine allégée</b> : moitié des séries, mêmes charges.' : '') +
+    '<br><br>Jambes lourdes et course ou ski intense : à séparer d\'au moins 3 h (R12).';
+  show('rh');
+}
+$('rh-done').onclick = () => {
+  const s = store.get('sessions', []); s.push({ type:'R-H', date:new Date().toISOString(), complete:true, deload:phaseInfo().deload }); store.set('sessions', s);
+  stopAll();
 };
 document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { form.grimpe24h = +b.dataset.g; pick('[data-g]', 'data-g', b.dataset.g); formWarn(); });
 function formWarn() {
@@ -497,7 +603,7 @@ function formWarn() {
 }
 let current = null;
 $('form-go').onclick = () => {
-  current = { type:'D-MAX', date:new Date().toISOString(), lest:dmaxLest(),
+  current = { type:'D-MAX', date:new Date().toISOString(), lest:dmaxLest(), deload:phaseInfo().deload,
     forme:{ doigts:scaleVal.doigts, coude:scaleVal.coude, epaule:scaleVal.epaule, grimpe24h:!!form.grimpe24h },
     conseilIgnore:!$('form-warn').classList.contains('hidden'), complete:false };
   runPlan(dmaxPlan(), () => {
@@ -555,7 +661,11 @@ function homeExtras() {
   $('alert-box').innerHTML = al.join('<br><br>');
   $('alert-box').classList.toggle('hidden', !al.length);
   const off = !!blk || !!pz;
-  $('start').disabled = off; $('start').style.opacity = off ? .35 : 1;
+  const t = $('start').dataset.type;
+  if (off && t === 'D-MAX') { $('start').dataset.type = 'R-H'; $('start').textContent = 'Séance du jour : renfo sans doigts'; $('reco-why').textContent = 'Pas de poutre : voir l\'alerte ci-dessus.'; }
+  const dis = $('start').dataset.type === 'repos' || $('start').dataset.type === 'done';
+  $('start').disabled = dis; $('start').style.opacity = dis ? .45 : 1;
+  $('other-dmax').disabled = off; $('other-dmax').style.opacity = off ? .35 : 1;
   const o = document.getElementById('override'); if (o) o.onclick = () => { store.set('pauseOverride', pz.until); refreshHome(); };
   const u = document.getElementById('unblock'); if (u) u.onclick = () => { store.set('blocage', null); refreshHome(); };
 }
@@ -564,14 +674,15 @@ function homeExtras() {
 const R = { facile:'facile', juste:'juste', echec:'échec' };
 $('go-hist').onclick = () => {
   const s = store.get('sessions', []).map(x => ({ d:x.date, t:x.type + (x.lest != null ? ' (' + signed(x.lest) + ')' : ''),
-    v:(x.complete ? '' : 'arrêtée · ') + (x.ressenti ? R[x.ressenti] : '—') + ' · doigts ' + (x.douleurDoigts ?? '—') + (x.claquement ? ' · CLAQUEMENT' : '') }));
+    v:x.type === 'R-H' ? 'faite' + (x.deload ? ' (allégée)' : '') : (x.complete ? '' : 'arrêtée · ') + (x.ressenti ? R[x.ressenti] : '—') + ' · doigts ' + (x.douleurDoigts ?? '—') + (x.claquement ? ' · CLAQUEMENT' : '') + (x.deload ? ' · allégée' : '') }));
   const TN = { force:'Test force', lest:'Test lest', int73:'Test 7:3', traction:'Test traction' };
   const tv = x => x.type === 'force' ? 'ratio ' + fmt(x.ratioD, 2) + ' D · ' + fmt(x.ratioG, 2) + ' G'
     : x.type === 'lest' ? 'lest max ' + signed(x.lestMax)
     : x.type === 'int73' ? x.score + ' contractions (cible ' + fmt(x.cible) + ' kg)'
     : signed(x.lest) + ' × ' + x.reps;
   const t = store.get('tests', []).map(x => ({ d:x.date, t:TN[x.type] || x.type, v:tv(x) }));
-  const all = s.concat(t).sort((a, b) => b.d.localeCompare(a.d));
+  const c = climbs().map(x => ({ d:x.date, t:'Grimpe', v:x.intense ? 'intense' : 'facile' }));
+  const all = s.concat(t, c).sort((a, b) => b.d.localeCompare(a.d));
   $('hist-table').innerHTML = all.length ? all.map(x => '<tr><td>' + new Date(x.d).toLocaleDateString('fr-FR') + '</td><td>' + x.t + '</td><td>' + x.v + '</td></tr>').join('')
     : '<tr><td>Rien pour l\'instant.</td></tr>';
   $('export-msg').textContent = '';
@@ -579,7 +690,7 @@ $('go-hist').onclick = () => {
 };
 $('export').onclick = async () => {
   const data = JSON.stringify({ exporte:new Date().toISOString(), profil:store.get('profile', {}),
-    seances:store.get('sessions', []), tests:store.get('tests', []) }, null, 1);
+    seances:store.get('sessions', []), tests:store.get('tests', []), grimpe:store.get('climbs', []) }, null, 1);
   const name = 'coach-escalade-' + new Date().toISOString().slice(0, 10) + '.json';
   try {
     const file = new File([data], name, { type:'application/json' });
