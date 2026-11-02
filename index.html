@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Coach">
+<meta name="theme-color" content="#0f172a">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Coach escalade</title>
+<style>
+  :root { --bg:#0f172a; --fg:#f8fafc; --muted:#94a3b8; --hang:#16a34a; --rest:#1d4ed8; --warm:#b45309; --btn:#f59e0b; }
+  * { box-sizing:border-box; margin:0; -webkit-tap-highlight-color:transparent; }
+  html,body { height:100%; background:var(--bg); color:var(--fg);
+    font-family:-apple-system,system-ui,sans-serif; overflow:hidden; user-select:none; -webkit-user-select:none; }
+  body { padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom); transition:background .3s; }
+  body.hang { background:var(--hang); } body.rest { background:var(--rest); } body.warm { background:var(--warm); }
+  .screen { display:none; height:100%; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:4vh; }
+  .screen.on { display:flex; }
+  h1 { font-size:8vw; font-weight:800; }
+  .sub { color:var(--muted); font-size:4.5vw; line-height:1.4; max-width:34em; }
+  button { font:inherit; border:0; border-radius:24px; cursor:pointer; }
+  .big { background:var(--btn); color:#111; font-size:8vw; font-weight:800; padding:6vh 8vw; width:100%; max-width:600px; }
+  .small { background:rgba(255,255,255,.18); color:var(--fg); font-size:5vw; font-weight:700; padding:3vh 6vw; flex:1; }
+  #label { font-size:9vw; font-weight:800; line-height:1.1; min-height:2.2em; display:flex; align-items:center; }
+  #time { font-size:42vw; font-weight:900; line-height:1; font-variant-numeric:tabular-nums; letter-spacing:-.03em; }
+  #count { font-size:7vw; font-weight:700; opacity:.9; }
+  #next { font-size:5vw; opacity:.8; min-height:1.4em; }
+  .row { display:flex; gap:16px; width:100%; max-width:600px; }
+  @media (orientation:landscape) { #time { font-size:30vh; } #label { font-size:8vh; } }
+</style>
+</head>
+<body>
+<section id="home" class="screen on">
+  <h1>Coach escalade</h1>
+  <button class="big" id="start">Séance du jour</button>
+  <p class="sub">Force max doigts (D-MAX)<br>Échauffement puis 5 suspensions de 10 s, 2 min de repos.<br>≈ 14 min. Monte le son et coupe le mode silencieux.</p>
+</section>
+<section id="run" class="screen">
+  <div id="count"></div>
+  <div id="label"></div>
+  <div id="time">0</div>
+  <div id="next"></div>
+  <div class="row">
+    <button class="small" id="pause">Pause</button>
+    <button class="small" id="stop">Arrêter</button>
+  </div>
+</section>
+<section id="done" class="screen">
+  <h1>Séance terminée</h1>
+  <button class="big" id="home-btn">Accueil</button>
+</section>
+<video id="nosleep" playsinline muted loop style="position:absolute;width:1px;height:1px;opacity:0"
+  src="data:video/mp4;base64,AAAAIGZ0eXBpc29tAAACAGlzb21pc28yYXZjMW1wNDEAAAMxbW9vdgAAAGxtdmhkAAAAAAAAAAAAAAAAAAAD6AAAB9AAAQAAAQAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAlt0cmFrAAAAXHRraGQAAAADAAAAAAAAAAAAAAABAAAAAAAAB9AAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAABAAAAAABAAAAAQAAAAAAAkZWR0cwAAABxlbHN0AAAAAAAAAAEAAAfQAAAAAAABAAAAAAHTbWRpYQAAACBtZGhkAAAAAAAAAAAAAAAAAABAAAAAgABVxAAAAAAALWhkbHIAAAAAAAAAAHZpZGUAAAAAAAAAAAAAAABWaWRlb0hhbmRsZXIAAAABfm1pbmYAAAAUdm1oZAAAAAEAAAAAAAAAAAAAACRkaW5mAAAAHGRyZWYAAAAAAAAAAQAAAAx1cmwgAAAAAQAAAT5zdGJsAAAAvnN0c2QAAAAAAAAAAQAAAK5hdmMxAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAABAAEABIAAAASAAAAAAAAAABFUxhdmM2MC4zMS4xMDIgbGlieDI2NAAAAAAAAAAAAAAAGP//AAAANGF2Y0MBZAAK/+EAF2dkAAqs2V7ARAAAAwAEAAADAAg8SJZYAQAGaOvjyyLA/fj4AAAAABBwYXNwAAAAAQAAAAEAAAAUYnRydAAAAAAAAAtEAAALRAAAABhzdHRzAAAAAAAAAAEAAAACAABAAAAAABRzdHNzAAAAAAAAAAEAAAABAAAAHHN0c2MAAAAAAAAAAQAAAAEAAAACAAAAAQAAABxzdHN6AAAAAAAAAAAAAAACAAACxQAAAAwAAAAUc3RjbwAAAAAAAAABAAADYQAAAGJ1ZHRhAAAAWm1ldGEAAAAAAAAAIWhkbHIAAAAAAAAAAG1kaXJhcHBsAAAAAAAAAAAAAAAALWlsc3QAAAAlqXRvbwAAAB1kYXRhAAAAAQAAAABMYXZmNjAuMTYuMTAwAAAACGZyZWUAAALZbWRhdAAAAq0GBf//qdxF6b3m2Ui3lizYINkj7u94MjY0IC0gY29yZSAxNjQgcjMxMDggMzFlMTlmOSAtIEguMjY0L01QRUctNCBBVkMgY29kZWMgLSBDb3B5bGVmdCAyMDAzLTIwMjMgLSBodHRwOi8vd3d3LnZpZGVvbGFuLm9yZy94MjY0Lmh0bWwgLSBvcHRpb25zOiBjYWJhYz0xIHJlZj0zIGRlYmxvY2s9MTowOjAgYW5hbHlzZT0weDM6MHgxMTMgbWU9aGV4IHN1Ym1lPTcgcHN5PTEgcHN5X3JkPTEuMDA6MC4wMCBtaXhlZF9yZWY9MSBtZV9yYW5nZT0xNiBjaHJvbWFfbWU9MSB0cmVsbGlzPTEgOHg4ZGN0PTEgY3FtPTAgZGVhZHpvbmU9MjEsMTEgZmFzdF9wc2tpcD0xIGNocm9tYV9xcF9vZmZzZXQ9LTIgdGhyZWFkcz0xIGxvb2thaGVhZF90aHJlYWRzPTEgc2xpY2VkX3RocmVhZHM9MCBucj0wIGRlY2ltYXRlPTEgaW50ZXJsYWNlZD0wIGJsdXJheV9jb21wYXQ9MCBjb25zdHJhaW5lZF9pbnRyYT0wIGJmcmFtZXM9MyBiX3B5cmFtaWQ9MiBiX2FkYXB0PTEgYl9iaWFzPTAgZGlyZWN0PTEgd2VpZ2h0Yj0xIG9wZW5fZ29wPTAgd2VpZ2h0cD0yIGtleWludD0yNTAga2V5aW50X21pbj0xIHNjZW5lY3V0PTQwIGludHJhX3JlZnJlc2g9MCByY19sb29rYWhlYWQ9NDAgcmM9Y3JmIG1idHJlZT0xIGNyZj0yMy4wIHFjb21wPTAuNjAgcXBtaW49MCBxcG1heD02OSBxcHN0ZXA9NCBpcF9yYXRpbz0xLjQwIGFxPTE6MS4wMACAAAAAEGWIhAAW//730z/MsuyaJYEAAAAIQZohbEFf/vA="></video>
+<script>
+'use strict';
+// ---------------------------------------------------------------------------
+// Séance D-MAX — paramètres : voir SOURCES.md (revue §4.3, R1, R7).
+// ---------------------------------------------------------------------------
+const WARM_CARDIO_S = 120;          // ECH : 2 min cardio léger (§4.3)
+const WARM_MOBILITY_S = 60;         // ECH : 1 min mobilité épaules et poignets (§4.3)
+const WARM_HANGS = [30, 50, 70];    // ECH : suspensions à ~30, 50, 70 %, pieds au sol (§4.3, R7)
+const WARM_HANG_S = 7;              // ECH : 7 s (§4.3, R7)
+const WARM_REST_S = 30;             // ECH : 30 s de repos (§4.3, R7)
+const MAX_REPS = 5;                 // D-MAX : 5 suspensions (§4.3, R1)
+const MAX_HANG_S = 10;              // D-MAX : 10 s (§4.3, R1)
+const MAX_REST_S = 120;             // D-MAX : 2 min de repos (§4.3, R1)
+// HYPOTHÈSE H3 (SOURCES.md) : la revue demande « prêt », « suspends », « lâche » et un compte
+// à rebours (§4.1) sans en fixer les durées. Choix : « prêt » 5 s avant, bips à 3-2-1.
+const READY_S = 5;
+
+function buildPlan() {
+  const p = [];
+  p.push({ kind:'warm', label:'Cardio léger', dur:WARM_CARDIO_S,
+           say:'Échauffement. Deux minutes de cardio léger.' });
+  p.push({ kind:'warm', label:'Mobilité épaules et poignets', dur:WARM_MOBILITY_S,
+           say:'Une minute de mobilité, épaules et poignets.' });
+  WARM_HANGS.forEach((pct, i) => {
+    p.push({ kind:'hang', label:'Pieds au sol, ' + pct + ' %', dur:WARM_HANG_S,
+             count:'Échauffement ' + (i+1) + ' / ' + WARM_HANGS.length,
+             say:'Suspends. ' + pct + ' pour cent, pieds au sol.' });
+    p.push({ kind:'rest', label:'Repos', dur:WARM_REST_S, say:'Lâche. Repos trente secondes.' });
+  });
+  for (let i = 1; i <= MAX_REPS; i++) {
+    p.push({ kind:'hang', label:'Suspension max', dur:MAX_HANG_S, count:'Suspension ' + i + ' / ' + MAX_REPS,
+             say:'Suspends. Série ' + i + ' sur ' + MAX_REPS + '.' });
+    if (i < MAX_REPS) p.push({ kind:'rest', label:'Repos', dur:MAX_REST_S, say:'Lâche. Repos deux minutes.' });
+  }
+  return p;
+}
+
+// --- Son -------------------------------------------------------------------
+let ctx = null, voice = null;
+function initAudio() {
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
+  ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+  ctx.resume();
+  const pick = () => {
+    const v = speechSynthesis.getVoices();
+    voice = v.find(x => /^fr[-_]FR/i.test(x.lang)) || v.find(x => /^fr/i.test(x.lang)) || null;
+  };
+  pick(); speechSynthesis.onvoiceschanged = pick;
+  say(' ');  // iOS : la voix doit être débloquée par un tapotement
+}
+function beep(freq, len) {
+  if (!ctx) return;
+  const t = ctx.currentTime, o = ctx.createOscillator(), g = ctx.createGain();
+  o.type = 'square'; o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.6, t + 0.01);
+  g.gain.setValueAtTime(0.6, t + len - 0.03);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+  o.connect(g).connect(ctx.destination); o.start(t); o.stop(t + len + 0.02);
+}
+function say(text) {
+  if (!('speechSynthesis' in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'fr-FR'; if (voice) u.voice = voice; u.rate = 1.0; u.volume = 1;
+  speechSynthesis.speak(u);
+  window.__said && window.__said.push(text);
+}
+
+// --- Écran allumé ------------------------------------------------------------
+let lock = null;
+async function keepAwake(on) {
+  const vid = document.getElementById('nosleep');
+  if (on) {
+    try { lock = await navigator.wakeLock.request('screen'); } catch (e) { lock = null; }
+    if (!lock) { try { await vid.play(); } catch (e) {} }
+  } else {
+    try { lock && lock.release(); } catch (e) {} lock = null; vid.pause();
+  }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && state === 'running') keepAwake(true);
+});
+
+// --- Déroulé -------------------------------------------------------------------
+const $ = id => document.getElementById(id);
+let plan = [], idx = 0, stepStart = 0, pausedAt = 0, state = 'idle', fired = new Set(), timer = null;
+const now = () => performance.now();
+
+function show(id) { document.querySelectorAll('.screen').forEach(s => s.classList.toggle('on', s.id === id)); }
+function nextText(i) {
+  const n = plan[i + 1]; if (!n) return 'Dernière';
+  return 'Ensuite : ' + (n.kind === 'hang' ? n.label + ' (' + n.dur + ' s)' : n.label);
+}
+function enter(i) {
+  idx = i; stepStart = now(); fired = new Set();
+  const s = plan[i];
+  document.body.className = s.kind;
+  $('label').textContent = s.label; $('count').textContent = s.count || '';
+  $('next').textContent = nextText(i);
+  if (s.kind === 'hang') beep(1320, 0.45); else beep(660, 0.3);
+  setTimeout(() => say(s.say), s.kind === 'hang' ? 450 : 300);
+}
+function tick() {
+  if (state !== 'running') return;
+  const s = plan[idx];
+  const el = (now() - stepStart) / 1000;
+  const left = s.dur - el;
+  const shown = Math.max(0, Math.ceil(left));
+  $('time').textContent = shown >= 60 ? Math.floor(shown/60) + ':' + String(shown%60).padStart(2,'0') : shown;
+  const next = plan[idx + 1];
+  // Avant une suspension : « prêt » puis bips 3-2-1 (hypothèse H3)
+  if (next && next.kind === 'hang' && s.dur > READY_S + 1 && left <= READY_S && !fired.has('ready')) {
+    fired.add('ready'); say('Prêt.');
+  }
+  for (const k of [3, 2, 1]) {
+    if (left <= k && left > k - 1 && !fired.has(k) && s.dur > k) {
+      fired.add(k);
+      if (s.kind === 'hang' || (next && next.kind === 'hang')) beep(880, 0.15);
+    }
+  }
+  if (left <= 0) {
+    if (idx + 1 < plan.length) enter(idx + 1); else finish();
+  }
+}
+function finish() {
+  state = 'idle'; clearInterval(timer); keepAwake(false);
+  document.body.className = ''; beep(1320, 0.3); setTimeout(() => beep(1760, 0.6), 350);
+  setTimeout(() => say('Lâche. Séance terminée. Bravo.'), 900);
+  show('done');
+}
+$('start').onclick = () => {
+  initAudio(); keepAwake(true);
+  plan = buildPlan(); state = 'running'; show('run');
+  $('pause').textContent = 'Pause';
+  enter(0); clearInterval(timer); timer = setInterval(tick, 100); tick();
+};
+$('pause').onclick = () => {
+  if (state === 'running') { state = 'paused'; pausedAt = now(); speechSynthesis.cancel(); $('pause').textContent = 'Reprendre'; say('Pause.'); }
+  else if (state === 'paused') { stepStart += now() - pausedAt; state = 'running'; $('pause').textContent = 'Pause'; say('On reprend.'); }
+};
+$('stop').onclick = () => {
+  state = 'idle'; clearInterval(timer); keepAwake(false); speechSynthesis.cancel();
+  document.body.className = ''; show('home');
+};
+$('home-btn').onclick = () => show('home');
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
