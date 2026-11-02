@@ -218,7 +218,44 @@ const roundTo = (v, step) => Math.round(v / step) * step;
 
 function lastLest() { const t = store.get('tests', []).filter(x => x.type === 'lest'); return t.length ? t[t.length - 1] : null; }
 function lastForce() { const t = store.get('tests', []).filter(x => x.type === 'force'); return t.length ? t[t.length - 1] : null; }
-function dmaxLest() { const l = lastLest(); return l ? roundTo(l.lestMax * DMAX_PCT, ROUND_KG) : null; }
+// Progression / régression D-MAX (§4.4) — avis d'expert, très faible.
+const PROG_UP_BW = 0.02;      // 2 séances « facile » de suite → +2 % du poids du corps (§4.4.2)
+const PROG_DOWN = 0.05;       // 2 séances de suite avec échec → −5 % (§4.4.4) ; base : HYPOTHÈSE H9 (charge totale)
+const HALF_SERIES = 0.5;      // douleur lendemain > veille → −50 % de séries (§4.4 forme 3) ; arrondi supérieur : H10
+const PAUSE_DAYS = 7;         // « une semaine sans poutre » (§4.4 forme 3, §4.8)
+function dmaxState() {
+  const l = lastLest();
+  if (!l) return { lest:null, reps:MAX_REPS, notes:[] };
+  const bw = store.get('profile', {}).poids ?? l.poids ?? null;
+  let lest = roundTo(l.lestMax * DMAX_PCT, ROUND_KG), easy = 0, fail = 0;
+  const notes = [];
+  const all = store.get('sessions', []).filter(x => x.type === 'D-MAX');
+  all.filter(x => x.date > l.date && x.complete && x.ressenti).forEach(x => {
+    if (x.ressenti === 'facile') {
+      easy++; fail = 0;
+      if (easy === 2 && bw) { const up = roundTo(PROG_UP_BW * bw, ROUND_KG); lest += up; easy = 0; notes.push('+' + fmt(up) + ' kg après 2 séances faciles'); }
+    } else if (x.ressenti === 'echec') {
+      fail++; easy = 0;
+      if (fail === 2 && bw) { const down = roundTo(PROG_DOWN * (bw + lest), ROUND_KG); lest -= down; fail = 0; notes.push('−' + fmt(down) + ' kg après 2 séances avec échec'); }
+    } else { easy = 0; fail = 0; }
+  });
+  const last = all[all.length - 1];
+  const half = !!(last && last.douleurLendemain != null && last.douleurDoigts != null && last.douleurLendemain > last.douleurDoigts);
+  return { lest, reps: half ? Math.ceil(MAX_REPS * HALF_SERIES) : MAX_REPS, half, notes };
+}
+function dmaxLest() { return dmaxState().lest; }
+// « Une semaine sans poutre » : douleur doigts ≥ 3 deux séances de suite (§4.8) ou douleur du lendemain plus forte deux fois en 14 jours (§4.4).
+function pauseInfo() {
+  const s = store.get('sessions', []).filter(x => x.type === 'D-MAX'), nowMs = Date.now(), DAY = 864e5;
+  let until = null, why = '';
+  const d = s.filter(x => x.douleurDoigts != null).slice(-2);
+  if (d.length === 2 && d.every(x => x.douleurDoigts >= PAIN_LIMIT)) { until = new Date(d[1].date).getTime() + PAUSE_DAYS * DAY; why = 'Douleur doigts ≥ 3/10 deux séances de suite (§4.8)'; }
+  const worse = s.filter(x => x.douleurLendemain != null && x.douleurDoigts != null && x.douleurLendemain > x.douleurDoigts && nowMs - new Date(x.date).getTime() <= 14 * DAY);
+  if (worse.length >= 2) { const u = new Date(worse[worse.length - 1].date).getTime() + PAUSE_DAYS * DAY; if (!until || u > until) { until = u; why = 'Douleur du lendemain plus forte deux fois en 14 jours (§4.4)'; } }
+  const ov = store.get('pauseOverride', null);
+  if (!until || until <= nowMs || (ov && ov >= until)) return null;
+  return { until, why };
+}
 
 // --- Plans ---------------------------------------------------------------------
 function warmPlan() {
@@ -233,11 +270,11 @@ function warmPlan() {
   return p;
 }
 function dmaxPlan() {
-  const p = warmPlan(), l = dmaxLest();
+  const p = warmPlan(), st = dmaxState(), l = st.lest, N = st.reps;
   const lab = l == null ? 'Suspension max' : 'Lest ' + signed(l);
-  for (let i = 1; i <= MAX_REPS; i++) {
-    p.push({ kind:'hang', label:lab, dur:MAX_HANG_S, count:'Suspension ' + i + ' / ' + MAX_REPS, say:'Suspends. Série ' + i + ' sur ' + MAX_REPS + '.' });
-    if (i < MAX_REPS) p.push({ kind:'rest', label:'Repos', dur:MAX_REST_S, say:'Lâche. Repos deux minutes.' });
+  for (let i = 1; i <= N; i++) {
+    p.push({ kind:'hang', label:lab, dur:MAX_HANG_S, count:'Suspension ' + i + ' / ' + N, say:'Suspends. Série ' + i + ' sur ' + N + '.' });
+    if (i < N) p.push({ kind:'rest', label:'Repos', dur:MAX_REST_S, say:'Lâche. Repos deux minutes.' });
   }
   return p;
 }
@@ -367,9 +404,11 @@ document.querySelectorAll('[data-home]').forEach(b => b.onclick = stopAll);
 
 // --- Accueil -------------------------------------------------------------------
 function refreshHome() {
-  const l = dmaxLest(), f = lastForce();
-  let t = 'Force max doigts : échauffement puis 5 suspensions de 10 s, 2 min de repos (≈ 14 min).';
-  t += l == null ? '<br><b>Fais le test « lest max » pour connaître ta charge.</b>' : '<br>Charge du jour : <b>lest ' + signed(l) + '</b>.';
+  const st = dmaxState(), l = st.lest, f = lastForce();
+  let t = 'Force max doigts : échauffement puis ' + st.reps + ' suspensions de 10 s, 2 min de repos.';
+  if (st.half) t += '<br><b>Moitié des séries</b> : douleur plus forte le lendemain de la dernière séance (§4.4).';
+  t += l == null ? '<br><b>Fais le test « lest max » pour connaître ta charge.</b>' : '<br>Charge du jour : <b>lest ' + signed(l) + '</b>' +
+    (st.notes.length ? ' (' + st.notes[st.notes.length - 1] + ')' : '') + '.';
   if (f) t += '<br>Dernier ratio de force : ' + fmt(f.ratioD, 2) + ' (D) · ' + fmt(f.ratioG, 2) + ' (G).';
   t += '<br>Monte le son et coupe le mode silencieux.';
   $('home-info').innerHTML = t;
@@ -473,14 +512,14 @@ function homeExtras() {
   const al = [], blk = store.get('blocage', null);
   if (blk) al.push('<b>Claquement ou douleur aiguë déclarés.</b> Séances doigts bloquées. Consulte un médecin ; une échographie est recommandée (§2.7, §4.8).' +
     '<br><button class="small" id="unblock">J\'ai consulté, débloquer</button>');
-  const d = s.filter(x => x.douleurDoigts != null).slice(-2);
-  if (!blk && d.length === 2 && d.every(x => x.douleurDoigts >= PAIN_LIMIT))
-    al.push('Douleur doigts ≥ 3/10 deux séances de suite : la revue conseille une semaine sans poutre, grimpe facile en prise ouverte uniquement (§4.8).');
-  if (last && last.douleurLendemain != null && last.douleurDoigts != null && last.douleurLendemain > last.douleurDoigts)
-    al.push('Douleur le lendemain plus forte que pendant la séance : la revue conseille de faire la moitié des séries à la prochaine séance doigts (§4.4). L\'appli ne l\'applique pas encore toute seule.');
+  const pz = blk ? null : pauseInfo();
+  if (pz) al.push('<b>Une semaine sans poutre</b>, jusqu\'au ' + new Date(pz.until).toLocaleDateString('fr-FR') + ' : ' + pz.why +
+    '. Grimpe facile en prise ouverte uniquement.<br><button class="small" id="override">Faire quand même</button>');
   $('alert-box').innerHTML = al.join('<br><br>');
   $('alert-box').classList.toggle('hidden', !al.length);
-  $('start').disabled = !!blk; $('start').style.opacity = blk ? .35 : 1;
+  const off = !!blk || !!pz;
+  $('start').disabled = off; $('start').style.opacity = off ? .35 : 1;
+  const o = document.getElementById('override'); if (o) o.onclick = () => { store.set('pauseOverride', pz.until); refreshHome(); };
   const u = document.getElementById('unblock'); if (u) u.onclick = () => { store.set('blocage', null); refreshHome(); };
 }
 
