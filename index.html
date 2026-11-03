@@ -86,10 +86,16 @@
 
 <!-- Renfo sans doigts R-H (§4.3) -->
 <section id="rh" class="screen scroll">
-  <h2>Renfo sans doigts (R-H)</h2>
+  <h2>Renfo maison</h2>
   <p class="sub" id="rh-content"></p>
-  <button class="big" id="rh-done">Séance faite</button>
+  <button class="big" id="rh-start">Commencer</button>
   <button class="small" style="flex:0" data-home>Retour</button>
+</section>
+<section id="rh-after" class="screen scroll">
+  <h2>Renfo terminé</h2>
+  <p class="sub">Pour chaque exercice : la charge utilisée, et si tu as atteint le haut de la fourchette sur toutes les séries.</p>
+  <div id="rh-ex" style="width:100%;max-width:600px;display:flex;flex-direction:column;gap:3vh"></div>
+  <button class="big" id="rh-save">Enregistrer</button>
 </section>
 
 <!-- Forme du jour (§4.1) -->
@@ -167,6 +173,7 @@
   <div id="next"></div>
   <div id="rest-ask" class="field hidden"><label id="rest-ask-label"></label>
     <input id="rest-ask-input" inputmode="decimal"></div>
+  <button class="big hidden" id="set-done" style="background:#fff;color:#111">Fait</button>
   <div class="row" id="run-btns">
     <button class="small" id="pause">Pause</button>
     <button class="small" id="stop">Arrêter</button>
@@ -422,21 +429,26 @@ function enter(i) {
   $('next').textContent = nextText(i);
   $('rest-ask').classList.toggle('hidden', !s.ask);
   if (s.ask) { $('rest-ask-label').textContent = s.ask.label; $('rest-ask-input').value = answers[s.ask.key] ?? ''; }
-  if (s.kind === 'hang') beep(1320, 0.45); else beep(660, 0.3);
+  $('set-done').classList.toggle('hidden', s.kind !== 'set');
+  if (s.kind === 'set') document.body.className = 'hang';
+  if (s.kind === 'hang' || s.kind === 'set') beep(1320, 0.45); else beep(660, 0.3);
   setTimeout(() => say(s.say), s.kind === 'hang' ? 450 : 300);
 }
+$('set-done').onclick = () => { if (state === 'running' && plan[idx] && plan[idx].kind === 'set') { if (idx + 1 < plan.length) enter(idx + 1); else finishRun(); } };
 function tick() {
   if (state !== 'running') return;
   const s = plan[idx];
+  if (s.kind === 'set') { $('time').textContent = s.reps; return; }
   const left = s.dur - (now() - stepStart) / 1000;
   const shown = Math.max(0, Math.ceil(left));
   $('time').textContent = shown >= 60 ? Math.floor(shown/60) + ':' + String(shown%60).padStart(2,'0') : shown;
   const next = plan[idx + 1];
-  if (next && next.kind === 'hang' && s.dur > READY_S + 1 && left <= READY_S && !fired.has('ready')) { fired.add('ready'); say('Prêt.'); }
+  const nextWork = next && (next.kind === 'hang' || next.kind === 'set');
+  if (nextWork && s.dur > READY_S + 1 && left <= READY_S && !fired.has('ready')) { fired.add('ready'); say('Prêt.'); }
   for (const k of [3, 2, 1]) {
     if (left <= k && left > k - 1 && !fired.has(k) && s.dur > k) {
       fired.add(k);
-      if (s.kind === 'hang' || (next && next.kind === 'hang')) beep(880, 0.15);
+      if (s.kind === 'hang' || nextWork) beep(880, 0.15);
     }
   }
   if (left <= 0) { if (idx + 1 < plan.length) enter(idx + 1); else finishRun(); }
@@ -448,7 +460,7 @@ function runPlan(p, end) {
 }
 function finishRun() {
   saveRestAnswer();
-  state = 'idle'; clearInterval(timer); document.body.className = ''; $('rest-ask').classList.add('hidden');
+  state = 'idle'; clearInterval(timer); document.body.className = ''; $('rest-ask').classList.add('hidden'); $('set-done').classList.add('hidden');
   const cb = onEnd; onEnd = null; cb && cb();
 }
 function stopAll() {
@@ -513,7 +525,7 @@ function recommend(d = new Date()) {
 function refreshHome() {
   const st = dmaxState(), l = st.lest, f = lastForce(), ph = phaseInfo(), rc = recommend();
   $('phase-line').innerHTML = ph.code === 'P1' ? 'Phase P1 · ' + ph.name + ' · semaine ' + ph.week + '/' + ph.weeks + (ph.deload ? ' · <b>semaine allégée</b>' : '') : ph.name;
-  const LBL = { 'D-MAX':'Séance du jour : force max doigts', 'R-H':'Séance du jour : renfo sans doigts', repos:'Aujourd\'hui : repos', done:'Séance du jour faite' };
+  const LBL = { 'D-MAX':'Séance du jour : force max doigts', 'R-H':'Séance du jour : renfo maison', repos:'Aujourd\'hui : repos', done:'Séance du jour faite' };
   $('start').textContent = LBL[rc.type]; $('start').dataset.type = rc.type;
   $('reco-why').textContent = rc.why;
   let t = 'Force max doigts : échauffement puis ' + st.reps + ' suspensions de 10 s, 2 min de repos.';
@@ -578,18 +590,70 @@ document.querySelectorAll('[data-climb]').forEach(b => b.onclick = () => {
 });
 
 // --- Renfo sans doigts R-H (§4.3) — contenu affiché ; séance guidée à venir --------------
+// --- Renfo maison (version adaptée de R-H, décision D13) ------------------------------------
+// Exercices de la revue faisables avec la poutre et les kettlebells 12 et 16 kg (pas de barre).
+// Superset A = traction lestée + pompes, 3 tours, 90 s entre les tours (R-A §4.3, R8, R9).
+// Bloc B = fente bulgare lestée, remplace le squat lourd : HYPOTHÈSE H17.
+const RH_TOURS = 3;            // R-H : 3 séries traction et poussée (§4.3)
+const RH_REST_S = 90;          // supersets, 90 s (§4.3)
+const RH_EX = [
+  { id:'traction', name:'Traction lestée', reps:'4–6', top:6, step:2.5, haut:true },   // R-H §4.3, R8
+  { id:'pompes',   name:'Pompes',          reps:'6–10', top:10, step:2.5, haut:true },  // R-H §4.3, R9 (pompes lestées)
+  { id:'fente',    name:'Fente bulgare',   reps:'6–8 par jambe', top:8, step:5, haut:false }, // §2.4, R-A §4.3 : H17
+];
+function rhLoads() { return store.get('rhLoads', {}); }
+function rhPlan() {
+  const N = phaseInfo().deload ? Math.ceil(RH_TOURS * DELOAD_FACTOR) : RH_TOURS, L = rhLoads(), p = [];
+  const lab = e => e.name + (L[e.id] != null ? ' · ' + signed(L[e.id].charge) : '');
+  for (let t = 1; t <= N; t++) {
+    p.push({ kind:'set', label:lab(RH_EX[0]), reps:RH_EX[0].reps, count:'Superset A · tour ' + t + ' / ' + N, say:'Tractions. ' + RH_EX[0].reps.replace('–', ' à ') + ' répétitions.' });
+    p.push({ kind:'set', label:lab(RH_EX[1]), reps:RH_EX[1].reps, count:'Superset A · tour ' + t + ' / ' + N, say:'Pompes. ' + RH_EX[1].reps.replace('–', ' à ') + ' répétitions.' });
+    p.push({ kind:'rest', label:'Repos', dur:RH_REST_S, say:'Repos quatre-vingt-dix secondes.' });
+  }
+  for (let t = 1; t <= N; t++) {
+    p.push({ kind:'set', label:lab(RH_EX[2]), reps:'6–8 / jambe', count:'Fente bulgare · série ' + t + ' / ' + N, say:'Fente bulgare. Six à huit par jambe.' });
+    if (t < N) p.push({ kind:'rest', label:'Repos', dur:RH_REST_S, say:'Repos quatre-vingt-dix secondes.' });
+  }
+  return p;
+}
 function openRH() {
-  const dl = phaseInfo().deload;
-  $('rh-content').innerHTML = 'Contenu de la revue (§4.3), environ 25 min, en supersets avec 90 s de repos :<br><br>' +
-    '• Squat ou soulevé de terre trap-bar : ' + (dl ? '2' : '3–4') + ' séries de 3–5 répétitions<br>' +
-    '• Traction lestée : ' + (dl ? '2' : '3') + ' séries de 4–6 répétitions<br>' +
-    '• Poussée (pompes lestées, dips ou développé) : ' + (dl ? '2' : '3') + ' séries de 6–10 répétitions' +
+  const dl = phaseInfo().deload, L = rhLoads(), N = dl ? Math.ceil(RH_TOURS * DELOAD_FACTOR) : RH_TOURS;
+  const line = e => '• ' + e.name + ' : ' + N + ' × ' + e.reps + (L[e.id] != null ? ' — charge ' + signed(L[e.id].charge) : ' — charge à choisir');
+  $('rh-content').innerHTML = 'Environ 15 min. Kettlebells au baudrier pour les tractions, en main pour la fente.<br><br>' +
+    line(RH_EX[0]) + '<br>' + line(RH_EX[1]) + '<br>' + line(RH_EX[2]) +
+    '<br><br>Tractions et pompes enchaînées, puis 90 s de repos. Touche « Fait » après chaque série.' +
     (dl ? '<br><br><b>Semaine allégée</b> : moitié des séries, mêmes charges.' : '') +
-    '<br><br>Jambes lourdes et course ou ski intense : à séparer d\'au moins 3 h (R12).';
+    '<br><br>Pas de jambes lourdes à la maison : effet trail moins documenté (Llanos-Lagos 2024).';
   show('rh');
 }
-$('rh-done').onclick = () => {
-  const s = store.get('sessions', []); s.push({ type:'R-H', date:new Date().toISOString(), complete:true, deload:phaseInfo().deload }); store.set('sessions', s);
+$('rh-start').onclick = () => runPlan(rhPlan(), rhAfter);
+const rhAns = {};
+function rhAfter() {
+  keepAwake(false); beep(1320, 0.3); setTimeout(() => say('Renfo terminé. Bravo.'), 400);
+  const L = rhLoads(), box = $('rh-ex'); box.innerHTML = '';
+  RH_EX.forEach(e => {
+    rhAns[e.id] = null;
+    const sug = L[e.id] ? (L[e.id].top ? L[e.id].charge + e.step : L[e.id].charge) : 0;
+    const d = document.createElement('div'); d.className = 'field';
+    d.innerHTML = '<label>' + e.name + ' (' + e.reps + ') : charge en kg</label><input inputmode="decimal" data-ex="' + e.id + '" value="' + fmt(sug).replace(',0', '') + '">' +
+      '<div class="row"><button class="small opt" data-top="' + e.id + ',1">Haut atteint partout</button><button class="small opt" data-top="' + e.id + ',0">Pas partout</button></div>';
+    box.appendChild(d);
+  });
+  box.querySelectorAll('[data-top]').forEach(b => b.onclick = () => {
+    const [id, v] = b.dataset.top.split(','); rhAns[id] = v === '1';
+    box.querySelectorAll('[data-top^="' + id + ',"]').forEach(x => x.classList.toggle('sel', x === b));
+  });
+  show('rh-after');
+}
+$('rh-save').onclick = () => {
+  const L = rhLoads(), ex = {};
+  RH_EX.forEach(e => {
+    const c = num(document.querySelector('[data-ex="' + e.id + '"]').value);
+    ex[e.id] = { charge:c, top:rhAns[e.id] };
+    if (c != null) L[e.id] = { charge:c, top:!!rhAns[e.id] };
+  });
+  store.set('rhLoads', L);
+  const s = store.get('sessions', []); s.push({ type:'R-H', variante:'maison', date:new Date().toISOString(), complete:true, deload:phaseInfo().deload, exercices:ex }); store.set('sessions', s);
   stopAll();
 };
 document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { form.grimpe24h = +b.dataset.g; pick('[data-g]', 'data-g', b.dataset.g); formWarn(); });
@@ -663,7 +727,7 @@ function homeExtras() {
   $('alert-box').classList.toggle('hidden', !al.length);
   const off = !!blk || !!pz;
   const t = $('start').dataset.type;
-  if (off && t === 'D-MAX') { $('start').dataset.type = 'R-H'; $('start').textContent = 'Séance du jour : renfo sans doigts'; $('reco-why').textContent = 'Pas de poutre : voir l\'alerte ci-dessus.'; }
+  if (off && t === 'D-MAX') { $('start').dataset.type = 'R-H'; $('start').textContent = 'Séance du jour : renfo maison'; $('reco-why').textContent = 'Pas de poutre : voir l\'alerte ci-dessus.'; }
   const dis = $('start').dataset.type === 'repos' || $('start').dataset.type === 'done';
   $('start').disabled = dis; $('start').style.opacity = dis ? .45 : 1;
   $('other-dmax').disabled = off; $('other-dmax').style.opacity = off ? .35 : 1;
