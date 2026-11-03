@@ -600,33 +600,51 @@ const RH_EX = [
   { id:'traction', name:'Traction lestée', reps:'4–6', top:6, step:2.5, haut:true },   // R-H §4.3, R8
   { id:'pompes',   name:'Pompes',          reps:'6–10', top:10, step:2.5, haut:true },  // R-H §4.3, R9 (pompes lestées)
   { id:'fente',    name:'Fente bulgare',   reps:'6–8 par jambe', top:8, step:5, haut:false }, // §2.4, R-A §4.3 : H17
+  { id:'stepup',   name:'Step-up lesté',   reps:'6–10 par jambe', top:10, step:5, haut:false }, // §2.4 (6–10 RM) : D14
 ];
+// Pliométrie (R11) : 2–3 séries de 8–10 sauts, en début de séance jambes, 1/sem — ajoutée par D14.
+const PLIO_SETS = 3, PLIO_REPS = '8–10';   // R11 ; nombre de séries (3) et repos (90 s) : HYPOTHÈSE H18
+function plioThisWeek() {
+  const mon = mondayOf(new Date()).getTime();
+  return !store.get('sessions', []).some(x => x.type === 'R-H' && x.pliometrie && new Date(x.date).getTime() >= mon);
+}
 function rhLoads() { return store.get('rhLoads', {}); }
 function rhPlan() {
-  const N = phaseInfo().deload ? Math.ceil(RH_TOURS * DELOAD_FACTOR) : RH_TOURS, L = rhLoads(), p = [];
+  const dl = phaseInfo().deload, N = dl ? Math.ceil(RH_TOURS * DELOAD_FACTOR) : RH_TOURS, L = rhLoads(), p = [];
   const lab = e => e.name + (L[e.id] != null ? ' · ' + signed(L[e.id].charge) : '');
-  for (let t = 1; t <= N; t++) {
-    p.push({ kind:'set', label:lab(RH_EX[0]), reps:RH_EX[0].reps, count:'Superset A · tour ' + t + ' / ' + N, say:'Tractions. ' + RH_EX[0].reps.replace('–', ' à ') + ' répétitions.' });
-    p.push({ kind:'set', label:lab(RH_EX[1]), reps:RH_EX[1].reps, count:'Superset A · tour ' + t + ' / ' + N, say:'Pompes. ' + RH_EX[1].reps.replace('–', ' à ') + ' répétitions.' });
-    p.push({ kind:'rest', label:'Repos', dur:RH_REST_S, say:'Repos quatre-vingt-dix secondes.' });
+  const say = e => e.name + '. ' + e.reps.replace('–', ' à ').replace('par jambe', 'par jambe') + '.';
+  if (plioThisWeek()) {
+    const P = dl ? Math.ceil(PLIO_SETS * DELOAD_FACTOR) : PLIO_SETS;
+    for (let t = 1; t <= P; t++) {
+      p.push({ kind:'set', label:'Sauts', reps:PLIO_REPS, count:'Pliométrie · série ' + t + ' / ' + P, say:'Sauts. Huit à dix.', plio:true });
+      p.push({ kind:'rest', label:'Repos', dur:RH_REST_S, say:'Repos quatre-vingt-dix secondes.' });
+    }
   }
-  for (let t = 1; t <= N; t++) {
-    p.push({ kind:'set', label:lab(RH_EX[2]), reps:'6–8 / jambe', count:'Fente bulgare · série ' + t + ' / ' + N, say:'Fente bulgare. Six à huit par jambe.' });
-    if (t < N) p.push({ kind:'rest', label:'Repos', dur:RH_REST_S, say:'Repos quatre-vingt-dix secondes.' });
-  }
+  const sup = (a, b, name) => {
+    for (let t = 1; t <= N; t++) {
+      p.push({ kind:'set', label:lab(a), reps:a.reps.replace(' par jambe', ' / j'), count:name + ' · tour ' + t + ' / ' + N, say:say(a) });
+      p.push({ kind:'set', label:lab(b), reps:b.reps.replace(' par jambe', ' / j'), count:name + ' · tour ' + t + ' / ' + N, say:say(b) });
+      p.push({ kind:'rest', label:'Repos', dur:RH_REST_S, say:'Repos quatre-vingt-dix secondes.' });
+    }
+  };
+  sup(RH_EX[0], RH_EX[1], 'Superset A');
+  sup(RH_EX[2], RH_EX[3], 'Superset B');
+  p.pop();   // pas de repos après la dernière série
   return p;
 }
 function openRH() {
-  const dl = phaseInfo().deload, L = rhLoads(), N = dl ? Math.ceil(RH_TOURS * DELOAD_FACTOR) : RH_TOURS;
+  const dl = phaseInfo().deload, L = rhLoads(), N = dl ? Math.ceil(RH_TOURS * DELOAD_FACTOR) : RH_TOURS, pl = plioThisWeek();
   const line = e => '• ' + e.name + ' : ' + N + ' × ' + e.reps + (L[e.id] != null ? ' — charge ' + signed(L[e.id].charge) : ' — charge à choisir');
-  $('rh-content').innerHTML = 'Environ 15 min. Kettlebells au baudrier pour les tractions, en main pour la fente.<br><br>' +
-    line(RH_EX[0]) + '<br>' + line(RH_EX[1]) + '<br>' + line(RH_EX[2]) +
-    '<br><br>Tractions et pompes enchaînées, puis 90 s de repos. Touche « Fait » après chaque série.' +
+  $('rh-content').innerHTML = (pl ? 'Environ 25 min.' : 'Environ 20 min.') + ' Tractions : kettlebell(s) au baudrier. Jambes : un seul kettlebell (12 ou 16 kg) tenu contre la poitrine.<br><br>' +
+    (pl ? '• Sauts (pliométrie, 1 fois par semaine) : ' + (dl ? Math.ceil(PLIO_SETS * DELOAD_FACTOR) : PLIO_SETS) + ' × ' + PLIO_REPS + '<br>' : '') +
+    '<b>Superset A</b><br>' + line(RH_EX[0]) + '<br>' + line(RH_EX[1]) + '<br><b>Superset B</b><br>' + line(RH_EX[2]) + '<br>' + line(RH_EX[3]) +
+    '<br><br>Les deux exercices s\'enchaînent, puis 90 s de repos. Touche « Fait » après chaque série.' +
     (dl ? '<br><br><b>Semaine allégée</b> : moitié des séries, mêmes charges.' : '') +
     '<br><br>Pas de jambes lourdes à la maison : effet trail moins documenté (Llanos-Lagos 2024).';
   show('rh');
 }
-$('rh-start').onclick = () => runPlan(rhPlan(), rhAfter);
+let rhPlio = false;
+$('rh-start').onclick = () => { const pl = rhPlan(); rhPlio = pl.some(x => x.plio); runPlan(pl, rhAfter); };
 const rhAns = {};
 function rhAfter() {
   keepAwake(false); beep(1320, 0.3); setTimeout(() => say('Renfo terminé. Bravo.'), 400);
@@ -653,7 +671,7 @@ $('rh-save').onclick = () => {
     if (c != null) L[e.id] = { charge:c, top:!!rhAns[e.id] };
   });
   store.set('rhLoads', L);
-  const s = store.get('sessions', []); s.push({ type:'R-H', variante:'maison', date:new Date().toISOString(), complete:true, deload:phaseInfo().deload, exercices:ex }); store.set('sessions', s);
+  const s = store.get('sessions', []); s.push({ type:'R-H', variante:'maison', date:new Date().toISOString(), complete:true, deload:phaseInfo().deload, pliometrie:rhPlio, exercices:ex }); store.set('sessions', s);
   stopAll();
 };
 document.querySelectorAll('[data-g]').forEach(b => b.onclick = () => { form.grimpe24h = +b.dataset.g; pick('[data-g]', 'data-g', b.dataset.g); formWarn(); });
