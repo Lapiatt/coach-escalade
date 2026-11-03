@@ -603,7 +603,8 @@ const RH_EX = [
   { id:'stepup',   name:'Step-up lesté',   reps:'6–10 par jambe', top:10, step:5, haut:false }, // §2.4 (6–10 RM) : D14
 ];
 // Pliométrie (R11) : 2–3 séries de 8–10 sauts, en début de séance jambes, 1/sem — ajoutée par D14.
-const PLIO_SETS = 3, PLIO_REPS = '8–10';   // R11 ; nombre de séries (3) et repos (90 s) : HYPOTHÈSE H18
+const PLIO_SETS = 3, PLIO_REPS = '8–10';   // R11 ; 3 séries : H18 (validée)
+const PLIO_REST_S = 45;                    // repos entre séries de sauts : choix de Théo (D15), la revue ne le précise pas
 function plioThisWeek() {
   const mon = mondayOf(new Date()).getTime();
   return !store.get('sessions', []).some(x => x.type === 'R-H' && x.pliometrie && new Date(x.date).getTime() >= mon);
@@ -617,7 +618,7 @@ function rhPlan() {
     const P = dl ? Math.ceil(PLIO_SETS * DELOAD_FACTOR) : PLIO_SETS;
     for (let t = 1; t <= P; t++) {
       p.push({ kind:'set', label:'Sauts', reps:PLIO_REPS, count:'Pliométrie · série ' + t + ' / ' + P, say:'Sauts. Huit à dix.', plio:true });
-      p.push({ kind:'rest', label:'Repos', dur:RH_REST_S, say:'Repos quatre-vingt-dix secondes.' });
+      p.push({ kind:'rest', label:'Repos', dur:PLIO_REST_S, say:'Repos quarante-cinq secondes.' });
     }
   }
   const sup = (a, b, name) => {
