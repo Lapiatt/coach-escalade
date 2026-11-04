@@ -17,47 +17,52 @@
     font-family:-apple-system,system-ui,sans-serif; overflow:hidden; user-select:none; -webkit-user-select:none; }
   body { padding:env(safe-area-inset-top) 16px env(safe-area-inset-bottom); transition:background .3s; }
   body.hang { background:var(--hang); } body.rest { background:var(--rest); } body.warm { background:var(--warm); }
-  .screen { display:none; height:100%; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:3vh; }
+  /* Tous les écrans défilent si le contenu dépasse ; centrés sinon (marges auto). */
+  .screen { display:none; height:100%; flex-direction:column; align-items:center; justify-content:flex-start; text-align:center;
+    gap:clamp(8px, 2vh, 20px); overflow-y:auto; -webkit-overflow-scrolling:touch; padding:2vh 0; }
+  .screen > :first-child { margin-top:auto; } .screen > :last-child { margin-bottom:auto; }
   .screen.on { display:flex; }
-  .scroll { justify-content:flex-start; overflow-y:auto; padding:4vh 0; -webkit-overflow-scrolling:touch; }
-  h1 { font-size:8vw; font-weight:800; }
-  h2 { font-size:6.5vw; font-weight:800; }
-  .sub { color:var(--muted); font-size:4.2vw; line-height:1.4; max-width:34em; }
-  button { font:inherit; border:0; border-radius:20px; cursor:pointer; }
-  .big { background:var(--btn); color:#111; font-size:7.5vw; font-weight:800; padding:5vh 6vw; width:100%; max-width:600px; }
-  .mid { background:var(--card); color:var(--fg); font-size:5.5vw; font-weight:700; padding:3.2vh 5vw; width:100%; max-width:600px; }
-  .small { background:rgba(255,255,255,.18); color:var(--fg); font-size:5vw; font-weight:700; padding:3vh 5vw; flex:1; }
+  .screen > * { flex-shrink:0; }
+  h1 { font-size:clamp(24px, 7vw, 34px); font-weight:800; }
+  h2 { font-size:clamp(20px, 6vw, 28px); font-weight:800; }
+  .sub { color:var(--muted); font-size:clamp(14px, 3.8vw, 18px); line-height:1.35; max-width:34em; }
+  button { font:inherit; border:0; border-radius:16px; cursor:pointer; line-height:1.2; overflow-wrap:anywhere; }
+  .big { background:var(--btn); color:#111; font-size:clamp(20px, 6vw, 30px); font-weight:800; padding:clamp(14px, 3vh, 28px) 4vw; width:100%; max-width:600px; }
+  .mid { background:var(--card); color:var(--fg); font-size:clamp(17px, 4.8vw, 24px); font-weight:700; padding:clamp(12px, 2.2vh, 20px) 4vw; width:100%; max-width:600px; }
+  .small { background:rgba(255,255,255,.18); color:var(--fg); font-size:clamp(15px, 4.3vw, 20px); font-weight:700; padding:clamp(12px, 2vh, 18px) 2vw; flex:1; min-width:0; }
   .yes { background:#16a34a; color:#fff; } .no { background:#dc2626; color:#fff; }
-  #label { font-size:8.5vw; font-weight:800; line-height:1.1; min-height:2.2em; display:flex; align-items:center; justify-content:center; }
-  #time { font-size:40vw; font-weight:900; line-height:1; font-variant-numeric:tabular-nums; letter-spacing:-.03em; }
-  #count { font-size:6.5vw; font-weight:700; opacity:.9; }
-  #next { font-size:4.8vw; opacity:.85; min-height:1.4em; }
+  #label { font-size:clamp(24px, 7.5vw, 40px); font-weight:800; line-height:1.1; min-height:2.2em; display:flex; align-items:center; justify-content:center; }
+  #time { font-size:min(36vw, 24vh); font-weight:900; line-height:1; font-variant-numeric:tabular-nums; letter-spacing:-.03em; white-space:nowrap; }
+  #time.reps { font-size:min(24vw, 16vh); }
+  #count { font-size:clamp(17px, 5.5vw, 28px); font-weight:700; opacity:.9; }
+  #next { font-size:clamp(15px, 4.2vw, 20px); opacity:.85; min-height:1.4em; }
   .row { display:flex; gap:12px; width:100%; max-width:600px; }
   .field { display:flex; flex-direction:column; gap:6px; width:100%; max-width:600px; text-align:left; }
-  .field label { font-size:4.2vw; color:var(--muted); }
+  .field label { font-size:clamp(14px, 3.8vw, 18px); color:var(--muted); }
   .num { display:flex; gap:8px; }
-  input { font:inherit; font-size:8vw; font-weight:800; width:100%; padding:1.5vh 4vw; border-radius:16px; border:2px solid #334155;
+  input { font:inherit; font-size:clamp(22px, 7vw, 34px); font-weight:800; width:100%; padding:1.2vh 4vw; border-radius:16px; border:2px solid #334155;
     background:#0b1220; color:var(--fg); text-align:center; }
-  .sign { background:var(--card); color:var(--fg); font-size:7vw; font-weight:800; width:22vw; border-radius:16px; }
+  .sign { background:var(--card); color:var(--fg); font-size:clamp(22px, 7vw, 34px); font-weight:800; width:22vw; border-radius:16px; }
   #rest-ask { width:100%; max-width:600px; }
-  table { border-collapse:collapse; width:100%; max-width:600px; font-size:4.5vw; }
+  table { border-collapse:collapse; width:100%; max-width:600px; font-size:clamp(14px, 4.2vw, 19px); }
   td, th { padding:1vh 2vw; border-bottom:1px solid #334155; }
   th { color:var(--muted); font-weight:600; text-align:left; }
   td.v { font-weight:800; text-align:right; font-variant-numeric:tabular-nums; }
   .hidden { display:none !important; }
   .scale { display:grid; grid-template-columns:repeat(11, 1fr); gap:4px; }
-  .scale button { background:var(--card); color:var(--fg); font-size:4.6vw; font-weight:800; padding:2.2vh 0; border-radius:10px; }
+  .scale button { background:var(--card); color:var(--fg); font-size:clamp(13px, 4.2vw, 20px); font-weight:800; padding:clamp(10px, 1.8vh, 16px) 0; border-radius:10px; }
   .scale button.sel, .opt.sel { background:var(--btn); color:#111; }
-  .alert { background:#7f1d1d; color:#fff; border-radius:16px; padding:2vh 4vw; font-size:4.4vw; line-height:1.4; width:100%; max-width:600px; text-align:left; }
+  .alert { background:#7f1d1d; color:#fff; border-radius:16px; padding:2vh 4vw; font-size:clamp(14px, 4vw, 18px); line-height:1.4; width:100%; max-width:600px; text-align:left; }
   .alert button { margin-top:1.5vh; }
-  #hist-table td { font-size:3.8vw; text-align:left; }
+  #hist-table td { font-size:clamp(13px, 3.6vw, 17px); text-align:left; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; width:100%; max-width:600px; }
   @media (orientation:landscape) { #time { font-size:30vh; } #label { font-size:8vh; } }
 </style>
 </head>
 <body>
 
 <!-- Accueil -->
-<section id="home" class="screen on scroll">
+<section id="home" class="screen on">
   <h1>Coach escalade</h1>
   <div id="alert-box" class="alert hidden"></div>
   <div id="morning-box" class="field hidden">
@@ -69,9 +74,8 @@
   <p class="sub" id="reco-why"></p>
   <button class="mid" id="go-climb">J'ai grimpé</button>
   <p class="sub" id="home-info"></p>
-  <p class="sub" style="margin-bottom:-2vh">Choisir une autre séance :</p>
-  <div class="row"><button class="small" id="other-dmax">Force max</button><button class="small" id="other-rh">Renfo</button></div>
-  <div class="row"><button class="small" id="go-tests">Tests</button><button class="small" id="go-hist">Historique</button></div>
+  <div class="grid2"><button class="small" id="other-dmax">Autre : force max</button><button class="small" id="other-rh">Autre : renfo</button>
+    <button class="small" id="go-tests">Tests</button><button class="small" id="go-hist">Historique</button></div>
 </section>
 
 <!-- Déclarer une séance de grimpe -->
@@ -81,17 +85,17 @@
     <div class="row"><button class="small" data-climb="0,1">Bloc ou grimpe intense</button><button class="small" data-climb="0,0">Grimpe facile</button></div></div>
   <div class="field"><label>Hier</label>
     <div class="row"><button class="small" data-climb="1,1">Bloc ou grimpe intense</button><button class="small" data-climb="1,0">Grimpe facile</button></div></div>
-  <button class="small" style="flex:0" data-home>Retour</button>
+  <button class="small" style="flex:0;padding-left:8vw;padding-right:8vw" data-home>Retour</button>
 </section>
 
 <!-- Renfo sans doigts R-H (§4.3) -->
-<section id="rh" class="screen scroll">
+<section id="rh" class="screen">
   <h2>Renfo maison</h2>
   <p class="sub" id="rh-content"></p>
   <button class="big" id="rh-start">Commencer</button>
-  <button class="small" style="flex:0" data-home>Retour</button>
+  <button class="small" style="flex:0;padding-left:8vw;padding-right:8vw" data-home>Retour</button>
 </section>
-<section id="rh-after" class="screen scroll">
+<section id="rh-after" class="screen">
   <h2>Renfo terminé</h2>
   <p class="sub">Pour chaque exercice : la charge utilisée, et si tu as atteint le haut de la fourchette sur toutes les séries.</p>
   <div id="rh-ex" style="width:100%;max-width:600px;display:flex;flex-direction:column;gap:3vh"></div>
@@ -99,7 +103,7 @@
 </section>
 
 <!-- Forme du jour (§4.1) -->
-<section id="form" class="screen scroll">
+<section id="form" class="screen">
   <h2>Forme du jour</h2>
   <div class="field"><label>Douleur doigts (0–10)</label><div class="scale" data-scale="doigts"></div></div>
   <div class="field"><label>Douleur coude (0–10)</label><div class="scale" data-scale="coude"></div></div>
@@ -108,11 +112,11 @@
     <div class="row"><button class="small opt" data-g="0">Non</button><button class="small opt" data-g="1">Oui</button></div></div>
   <div id="form-warn" class="alert hidden"></div>
   <button class="big" id="form-go">Démarrer</button>
-  <button class="small" style="flex:0" data-home>Retour</button>
+  <button class="small" style="flex:0;padding-left:8vw;padding-right:8vw" data-home>Retour</button>
 </section>
 
 <!-- Saisie après séance -->
-<section id="after" class="screen scroll">
+<section id="after" class="screen">
   <h2 id="after-title">Séance terminée</h2>
   <div class="field"><label>Ressenti de l'exercice</label>
     <div class="row"><button class="small opt" data-r="facile">Facile</button><button class="small opt" data-r="juste">Juste</button><button class="small opt" data-r="echec">Échec</button></div></div>
@@ -122,7 +126,7 @@
 </section>
 
 <!-- Historique -->
-<section id="hist" class="screen scroll">
+<section id="hist" class="screen">
   <h2>Historique</h2>
   <table id="hist-table"></table>
   <button class="mid" id="export">Exporter l'historique</button>
@@ -138,7 +142,7 @@
   <button class="mid" id="go-lest">Lest max 10 s deux mains<br><span class="sub">≈ 15–25 min</span></button>
   <button class="mid" id="go-int">Endurance 7:3 (pèse-personne)<br><span class="sub">après le test de force</span></button>
   <button class="mid" id="go-trac">Traction lestée 1–3 RM</button>
-  <button class="small" style="flex:0" data-home>Retour</button>
+  <button class="small" style="flex:0;padding-left:8vw;padding-right:8vw" data-home>Retour</button>
 </section>
 
 <!-- Préparation test force -->
@@ -150,7 +154,7 @@
   <div class="field"><label>Ton poids ce matin (kg)</label>
     <input id="bw" inputmode="decimal" placeholder="72"></div>
   <button class="big" id="force-start">Commencer</button>
-  <button class="small" style="flex:0" data-home>Retour</button>
+  <button class="small" style="flex:0;padding-left:8vw;padding-right:8vw" data-home>Retour</button>
 </section>
 
 <!-- Préparation / entre essais du test lest -->
@@ -188,7 +192,7 @@
 </section>
 
 <!-- Résumé du test force -->
-<section id="force-sum" class="screen scroll">
+<section id="force-sum" class="screen">
   <h2>Lectures de la balance (kg)</h2>
   <p class="sub">Corrige ou complète si besoin.</p>
   <div id="force-inputs" class="field"></div>
@@ -196,7 +200,7 @@
 </section>
 
 <!-- Résultat -->
-<section id="result" class="screen scroll">
+<section id="result" class="screen">
   <h2 id="result-title">Résultat</h2>
   <table id="result-table"></table>
   <p class="sub" id="result-note"></p>
@@ -204,14 +208,14 @@
 </section>
 
 <!-- Test endurance 7:3 (§2.8) -->
-<section id="int-setup" class="screen scroll">
+<section id="int-setup" class="screen">
   <h2>Endurance 7:3</h2>
   <p class="sub">Debout sur le pèse-personne, deux mains, 20 mm, semi-arqué. Tire 7 s en gardant la balance sur la cible, relâche 3 s.
     Arrête-toi après <b>deux contractions de suite sous la cible</b> : touche alors l'écran.</p>
   <div id="int-target" style="font-size:16vw;font-weight:900"></div>
   <p class="sub" id="int-help"></p>
   <button class="big" id="int-start">Commencer</button>
-  <button class="small" style="flex:0" data-home>Retour</button>
+  <button class="small" style="flex:0;padding-left:8vw;padding-right:8vw" data-home>Retour</button>
 </section>
 <section id="cycle" class="screen">
   <div id="cy-count" style="font-size:7vw;font-weight:700"></div>
@@ -235,7 +239,7 @@
     <div class="num"><button class="sign" id="trac-sign">+</button><input id="trac-kg" inputmode="decimal" placeholder="0"></div></div>
   <div class="field"><label>Répétitions</label><input id="trac-reps" inputmode="numeric" placeholder="1"></div>
   <button class="big" id="trac-save">Enregistrer</button>
-  <button class="small" style="flex:0" data-home>Retour</button>
+  <button class="small" style="flex:0;padding-left:8vw;padding-right:8vw" data-home>Retour</button>
 </section>
 
 <section id="done" class="screen">
@@ -450,7 +454,8 @@ $('set-done').onclick = () => { if (state === 'running' && plan[idx] && plan[idx
 function tick() {
   if (state !== 'running') return;
   const s = plan[idx];
-  if (s.kind === 'set') { $('time').textContent = s.reps; return; }
+  if (s.kind === 'set') { $('time').textContent = s.reps; $('time').classList.add('reps'); return; }
+  $('time').classList.remove('reps');
   const left = s.dur - (now() - stepStart) / 1000;
   const shown = Math.max(0, Math.ceil(left));
   $('time').textContent = shown >= 60 ? Math.floor(shown/60) + ':' + String(shown%60).padStart(2,'0') : shown;
