@@ -174,6 +174,7 @@
   <div id="rest-ask" class="field hidden"><label id="rest-ask-label"></label>
     <input id="rest-ask-input" inputmode="decimal"></div>
   <button class="big hidden" id="set-done" style="background:#fff;color:#111">Fait</button>
+  <div class="row"><button class="small" id="step-prev">◀ Retour</button><button class="small" id="step-next">Passer ▶</button></div>
   <div class="row" id="run-btns">
     <button class="small" id="pause">Pause</button>
     <button class="small" id="stop">Arrêter</button>
@@ -434,6 +435,17 @@ function enter(i) {
   if (s.kind === 'hang' || s.kind === 'set') beep(1320, 0.45); else beep(660, 0.3);
   setTimeout(() => say(s.say), s.kind === 'hang' ? 450 : 300);
 }
+// Navigation manuelle entre les étapes (demande de Théo, 2026-11-04)
+function jump(i) {
+  if (state !== 'running' && state !== 'paused') return;
+  try { speechSynthesis.cancel(); } catch (e) {}
+  if (state === 'paused') { state = 'running'; $('pause').textContent = 'Pause'; }
+  if (i < 0) i = 0;
+  if (i >= plan.length) return finishRun();
+  enter(i);
+}
+$('step-prev').onclick = () => jump(idx - 1);
+$('step-next').onclick = () => jump(idx + 1);
 $('set-done').onclick = () => { if (state === 'running' && plan[idx] && plan[idx].kind === 'set') { if (idx + 1 < plan.length) enter(idx + 1); else finishRun(); } };
 function tick() {
   if (state !== 'running') return;
